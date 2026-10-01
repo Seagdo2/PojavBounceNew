@@ -105,37 +105,10 @@ object BrowserBackendManager : EventListener {
      * when the dependencies are available.
      */
     fun makeDependenciesAvailable(taskManager: TaskManager) {
-        if (isBrowserDisabled) {
-            logger.warn("Environment variable 'LB_BROWSER_SKIP' is set to 'true'.")
-            return
-        }
-
-        if (browserBackend == "none") {
-            logger.warn("Environment variable 'LB_BROWSER_BACKEND' is set to 'none'.")
-            isBrowserDisabled = true
-            return
-        }
-
-        val provider = chosenBackend()
-        if (provider != null) {
-            use(provider, taskManager)
-            return
-        }
-
-        // No backend is loaded until the player picks one
-        val selection = CompletableDeferred<BrowserBackendProvider>()
-        pendingSelection = selection
-        logger.info("Asking which browser backend to use.")
-        mc.execute { mc.gui.setScreen(BrowserSelectionScreen(selectableBackends, selection)) }
-        taskManager.launch("Browser") {
-            val picked = selection.await()
-            pendingSelection = null
-
-            GlobalBrowserSettings.backendChoice.set(picked)
-            ConfigSystem.store(GlobalManager)
-            // Within the task, so the loading screen stays until the backend's tasks exist
-            mc.submit { use(picked, taskManager) }.await()
-        }
+        // Android专用版本：直接禁用浏览器后端
+        logger.warn("Android build: disabling browser backend.")
+        isBrowserDisabled = true
+        return
     }
 
     /**
