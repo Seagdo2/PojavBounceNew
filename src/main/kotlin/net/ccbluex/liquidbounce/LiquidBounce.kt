@@ -121,6 +121,10 @@ object LiquidBounce : EventListener {
     const val CLIENT_NAME = "LiquidBounce"
     const val CLIENT_AUTHOR = "CCBlueX"
 
+    // ========== Android 开关：硬编码为 true，替换缺失的 PlatformUtils ==========
+    private const val ANDROID_BUILD = true
+    // ====================================================================
+
     private object Client : Config("Client") {
         val version = text("Version", GitInfo.version())
             .immutable()
@@ -154,7 +158,7 @@ object LiquidBounce : EventListener {
      *
      * TODO: Replace this approach with full semantic versioning.
      */
-    const val IN_DEVELOPMENT = true
+    const val IN_DEVELOPMENT = false
 
     /**
      * Client logger to print out console messages
@@ -384,58 +388,66 @@ object LiquidBounce : EventListener {
     ) = withContext(dispatcher) {
         RenderSystem.assertOnRenderThread()
 
-        BrowserBackendManager.init()
-        ClientInteropServer.start()
+        // Android 构建跳过所有与浏览器/服务器交互相关的代码，避免崩溃
+        if (!ANDROID_BUILD) {
+            BrowserBackendManager.init()
+            ClientInteropServer.start()
 
-        // Preload marketplace items
-        ConfigSystem.load(MarketplaceManager)
-        MarketplaceManager.subscribedItems.forEach(SubscribedItem::restoreRetired)
-        AddonInstaller.stageSubscribedAddons()
-        MarketplaceManager.reloadHandlers()
+            // Preload marketplace items
+            ConfigSystem.load(MarketplaceManager)
+            MarketplaceManager.subscribedItems.forEach(SubscribedItem::restoreRetired)
+            AddonInstaller.stageSubscribedAddons()
+            MarketplaceManager.reloadHandlers()
 
-        if (!ClientInteropServer.isSkipping) {
-            ThemeManager.init()
-            ConfigSystem.load(ThemeManager)
-            ThemeManager.load()
+            if (!ClientInteropServer.isSkipping) {
+                ThemeManager.init()
+                ConfigSystem.load(ThemeManager)
+                ThemeManager.load()
+            }
+
+            BlurEffectRenderer
+            ScreenManager
+
+            // Holds the chosen browser backend
+            ConfigSystem.load(GlobalManager)
         }
 
-        BlurEffectRenderer
-        ScreenManager
+        if (!ANDROID_BUILD) {
+            taskManager = TaskManager(ioScope).apply {
+                // Either immediately starts browser or spawns a task to request browser dependencies,
+                // and then starts the browser through render thread.
+                BrowserBackendManager.makeDependenciesAvailable(this)
 
-        // Holds the chosen browser backend
-        ConfigSystem.load(GlobalManager)
+                // Initialize deep learning engine as task, because we cannot know if DJL will request
+                // resources from the internet.
+                launch("Deep Learning") { task ->
+                    runCatching {
+                        DeepLearningEngine.init(task)
+                        ModelManager.load()
+                        DeepLearningEngine.markInitialized()
+                    }.onFailure { exception ->
+                        task.subTasks.clear()
+                        DeepLearningEngine.markUnavailable()
 
-        taskManager = TaskManager(ioScope).apply {
-            // Either immediately starts browser or spawns a task to request browser dependencies,
-            // and then starts the browser through render thread.
-            BrowserBackendManager.makeDependenciesAvailable(this)
-
-            // Initialize deep learning engine as task, because we cannot know if DJL will request
-            // resources from the internet.
-            launch("Deep Learning") { task ->
-                runCatching {
-                    DeepLearningEngine.init(task)
-                    ModelManager.load()
-                    DeepLearningEngine.markInitialized()
-                }.onFailure { exception ->
-                    task.subTasks.clear()
-                    DeepLearningEngine.markUnavailable()
-
-                    // LiquidBounce can still run without deep learning,
-                    // and we don't want to crash the client if it fails.
-                    logger.info("Failed to initialize deep learning.", exception)
-                }
-            }
-
-            launch("Marketplace") { task ->
-                runCatching {
-                    MarketplaceManager.updateAll(task)
-                }.onFailure { exception ->
-                    logger.error("Failed to update marketplace items.", exception)
+                        // LiquidBounce can still run without deep learning,
+                        // and we don't want to crash the client if it fails.
+                        logger.info("Failed to initialize deep learning.", exception)
+                    }
                 }
 
-                task.isCompleted = true
+                launch("Marketplace") { task ->
+                    runCatching {
+                        MarketplaceManager.updateAll(task)
+                    }.onFailure { exception ->
+                        logger.error("Failed to update marketplace items.", exception)
+                    }
+
+                    task.isCompleted = true
+                }
             }
+        } else {
+            // Android 下直接设为 null，极简初始化
+            taskManager = null
         }
 
         // Prepare glyph manager
@@ -461,9 +473,12 @@ object LiquidBounce : EventListener {
         FontManager.closeGlyphManager()
         EventManager.unregisterAll()
 
-        // Shutdown HTTP server
-        ioScope.launch {
-            ClientInteropServer.stop()
+        // Shutdown HTTP server (Android 跳过)
+        if (!ANDROID_BUILD) {
+            ioScope.launch {
+                ClientInteropServer.stop()
+            }
+            BrowserBackendManager.stop()
         }
 
         AddonManager.notifyStopping()
@@ -471,8 +486,7 @@ object LiquidBounce : EventListener {
         // Save all configurations
         ConfigSystem.storeAll()
 
-        // Shutdown browser
-        BrowserBackendManager.stop()
+        // Shutdown browser (Android 跳过 - 已在上面处理)
     }
 
     /**
@@ -490,6 +504,11 @@ object LiquidBounce : EventListener {
             logger.info("Screen Resolution: ${mc.window.screenWidth}x${mc.window.screenHeight}")
             logger.info("Refresh Rate: ${mc.window.activeVideoMode?.refreshRate} Hz")
 
+            if (ANDROID_BUILD) {
+                logger.info("Android detected! Running on PojavLauncher/ZalithLauncher.")
+                logger.info("Some features (JCEF, Discord IPC, Deep Learning) will be disabled.")
+            }
+
             // Initialize event manager
             EventManager
 
@@ -497,7 +516,9 @@ object LiquidBounce : EventListener {
             val resourceManager = mc.resourceManager
             if (resourceManager is ReloadableResourceManager) {
                 resourceManager.registerReloadListener(ClientResourceReloader)
-                resourceManager.registerReloadListener(ThemeManager.reloader)
+                if (!ANDROID_BUILD) {
+                    resourceManager.registerReloadListener(ThemeManager.reloader)
+                }
             } else {
                 logger.warn("Failed to register resource reloader!")
 
@@ -506,7 +527,23 @@ object LiquidBounce : EventListener {
                     workerDispatcher = Dispatchers.Default,
                     renderThreadDispatcher = Dispatchers.Main,
                 ).thenCompose {
-                    ThemeManager.reloader.reload()
+                    if (!ANDROID_BUILD) {
+                        ThemeManager.reloader.reload()
+                    } else {
+                        CompletableFuture.completedStage(null)
+                    }
+                }
+            }
+
+            // Android: 反射注销 ScreenManager，彻底阻止 WebUI 报错
+            if (ANDROID_BUILD) {
+                try {
+                    val screenManagerClass = Class.forName("net.ccbluex.liquidbounce.integration.screen.ScreenManager")
+                    val instance = screenManagerClass.getDeclaredField("INSTANCE").get(null) as EventListener
+                    EventManager.unregisterEventHandler(instance)
+                    logger.info("[Android] 成功注销 ScreenManager，彻底阻止 WebUI 报错。")
+                } catch (e: Exception) {
+                    logger.warn("[Android] 注销 ScreenManager 失败: ${e.message}")
                 }
             }
         }.onFailure {
@@ -516,6 +553,8 @@ object LiquidBounce : EventListener {
 
     @Suppress("unused")
     private val screenHandler = handler<ScreenEvent>(priority = FIRST_PRIORITY) { event ->
+        if (ANDROID_BUILD) return@handler // Android: 不需要 TaskProgressScreen 逻辑
+
         val taskManager = taskManager ?: return@handler
 
         val selection = BrowserBackendManager.pendingSelection
