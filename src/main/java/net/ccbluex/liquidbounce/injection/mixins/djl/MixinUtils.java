@@ -21,8 +21,8 @@ package net.ccbluex.liquidbounce.injection.mixins.djl;
 import ai.djl.util.Utils;
 import net.ccbluex.liquidbounce.api.core.HttpClient;
 import net.ccbluex.liquidbounce.deeplearn.DeepLearningEngine;
-import net.ccbluex.liquidbounce.mcef.listeners.OkHttpProgressInterceptor;
 import okhttp3.Headers;
+import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,6 +34,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.util.Map;
 
@@ -47,24 +49,55 @@ public abstract class MixinUtils {
     private static final ThreadLocal<String> CURRENT_URL = new ThreadLocal<>();
 
     @Unique
-    private static final OkHttpClient CLIENT = HttpClient.getClient().newBuilder()
-            .addNetworkInterceptor(new OkHttpProgressInterceptor((bytesRead, contentLength, done) -> {
-                var url = CURRENT_URL.get();
-                var mainTask = DeepLearningEngine.getTask();
+    private static final OkHttpClient CLIENT = createClient();
 
-                if (mainTask == null || url == null) {
-                    return;
+    @Unique
+    private static OkHttpClient createClient() {
+        var builder = HttpClient.getClient().newBuilder();
+        try {
+            // 反射加载 OkHttpProgressInterceptor 及其内部接口 ProgressListener
+            Class<?> progressListenerClass = Class.forName(
+                "net.ccbluex.liquidbounce.mcef.listeners.OkHttpProgressInterceptor$ProgressListener"
+            );
+            Class<?> interceptorClass = Class.forName(
+                "net.ccbluex.liquidbounce.mcef.listeners.OkHttpProgressInterceptor"
+            );
+            Constructor<?> constructor = interceptorClass.getConstructor(progressListenerClass);
+
+            // 创建动态代理实现 ProgressListener
+            Object listener = Proxy.newProxyInstance(
+                progressListenerClass.getClassLoader(),
+                new Class<?>[]{progressListenerClass},
+                (proxy, method, args) -> {
+                    var url = CURRENT_URL.get();
+                    var mainTask = DeepLearningEngine.getTask();
+
+                    if (mainTask == null || url == null) {
+                        return null;
+                    }
+
+                    if (args != null && args.length == 3) {
+                        long bytesRead = (Long) args[0];
+                        long contentLength = (Long) args[1];
+                        boolean done = (Boolean) args[2];
+                        var task = mainTask.getOrCreateFileTask(url);
+                        task.update(bytesRead, contentLength);
+                        if (done) {
+                            task.setCompleted(true);
+                            CURRENT_URL.remove();
+                        }
+                    }
+                    return null;
                 }
+            );
 
-                var task = mainTask.getOrCreateFileTask(url);
-                task.update(bytesRead, contentLength);
-
-                if (done) {
-                    task.setCompleted(true);
-                    CURRENT_URL.remove();
-                }
-            }))
-            .build();
+            Interceptor interceptor = (Interceptor) constructor.newInstance(listener);
+            builder.addNetworkInterceptor(interceptor);
+        } catch (Exception e) {
+            // MCEF 不可用（如 Android 环境），跳过进度追踪，不影响功能
+        }
+        return builder.build();
+    }
 
     @Inject(
             method = "openUrl(Ljava/net/URL;Ljava/util/Map;)Ljava/io/InputStream;",
