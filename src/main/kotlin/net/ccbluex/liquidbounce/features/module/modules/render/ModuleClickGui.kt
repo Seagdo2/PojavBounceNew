@@ -1,156 +1,145 @@
 /*
- * ModuleClickGui23 —— 打开 ClickGuiScreen 的模块
+ * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
  *
- * 功能:
- *   - 快捷键(RightShift/ESC)打开/关闭 ClickGUI
- *   - 自定义 ClickGUI 颜色、不透明度、大小
- *   - 兼容所有现有 API
+ * Copyright (c) 2015 - 2026 CCBlueX
  *
- * 【本版修复】
- *   - ESC 关闭 ClickGUI 时不再同步 setScreen(null), 改为延迟到下一 tick 关闭,
- *     让本次 ESC 按键由 ClickGuiScreen 自身(shouldCloseOnEsc/keyPressed)消费,
- *     避免 ESC 漏到游戏输入(keyPause)导致弹出暂停菜单。
+ * LiquidBounce is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * LiquidBounce is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * ---
+ * MODIFIED from the stock file to open the native GuiGraphics-rendered
+ * NativeClickGuiScreen (render/clickgui/) instead of the web/Ultralight
+ * CustomSharedMinecraftScreen / CustomStandaloneMinecraftScreen. Diff
+ * summary against the original, so this is auditable rather than a
+ * silent rewrite:
+ *
+ *   - onEnabled() now does `mc.gui.setScreen(NativeClickGuiScreen())`
+ *     instead of opening a CustomSharedMinecraftScreen/
+ *     CustomStandaloneMinecraftScreen(CustomScreenType.CLICK_GUI).
+ *   - `scale`, `searchBarAutoFocus`, and Snapping's `gridSize` lost their
+ *     `private` modifier - NativeClickGuiScreen/NativePanel read them
+ *     directly instead of this module needing to push the values out via
+ *     events (ClickGuiScaleChangeEvent/ClickGuiValueChangeEvent are still
+ *     fired on change, in case other code listens for them, but nothing
+ *     here still *needs* them fired to function).
+ *   - The `Cache` setting, `standaloneScreen` field,
+ *     `updateStandaloneScreen()`, and the `browserReadyHandler` /
+ *     `tickHandler` handlers are REMOVED: all of that machinery exists to
+ *     manage a persistent embedded-browser instance's lifecycle (whether
+ *     to cache it, syncing it after a world change, toggling its
+ *     visibility every tick). A plain Screen has no such instance -
+ *     Minecraft already constructs/discards it for free - so keeping that
+ *     code would be dead weight that references a browser this screen
+ *     doesn't have. If you still use the web GUI elsewhere and want both
+ *     available side by side, don't drop this file in as a full
+ *     replacement - restore the browser-lifecycle members from your
+ *     original copy instead.
+ *   - isInSearchBar now checks NativeClickGuiScreen.isSearchFocused()
+ *     instead of the two Custom*MinecraftScreen classes' text-focus state.
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
+import com.mojang.blaze3d.platform.InputConstants
+import net.ccbluex.liquidbounce.LiquidBounce
+import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
+import net.ccbluex.liquidbounce.event.EventManager
+import net.ccbluex.liquidbounce.event.events.ClickGuiScaleChangeEvent
+import net.ccbluex.liquidbounce.event.events.ClickGuiValueChangeEvent
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
-import net.ccbluex.liquidbounce.event.events.KeyboardKeyEvent
-import net.ccbluex.liquidbounce.event.handler
-import org.lwjgl.glfw.GLFW
+import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.isTyping
+import net.ccbluex.liquidbounce.render.clickgui.NativeClickGuiScreen
+import net.ccbluex.liquidbounce.utils.client.inGame
+
+/**
+ * ClickGUI module
+ *
+ * Shows you an easy-to-use menu to toggle and configure modules.
+ */
 
 object ModuleClickGui :
-    ClientModule(
-        "ClickGUI",
-        ModuleCategories.RENDER,
-        bind = GLFW.GLFW_KEY_RIGHT_SHIFT,
-        disableActivation = true,
-    ) {
+    ClientModule("ClickGUI", ModuleCategories.RENDER, bind = InputConstants.KEY_RSHIFT, disableActivation = true) {
 
-    // ==================== 自定义设置 ====================
-    /** GUI 整体缩放 (0.5 ~ 2.0) */
-    val guiScale by float("Scale", 1.0f, 0.5f..2.0f)
-
-    /** 面板背景不透明度 (0.1 ~ 1.0) */
-    val bgAlpha by float("BackgroundAlpha", 0.69f, 0.1f..1.0f)
-
-    /** 面板背景颜色 R/G/B (0~255) */
-    val bgColorR by int("BgColor-R", 0x0D, 0..255)
-    val bgColorG by int("BgColor-G", 0x0D, 0..255)
-    val bgColorB by int("BgColor-B", 0x12, 0..255)
-
-    /** 未激活模块字体颜色 R/G/B (0~255) */
-    val textColorR by int("TextColor-R", 0xC8, 0..255)
-    val textColorG by int("TextColor-G", 0xC8, 0..255)
-    val textColorB by int("TextColor-B", 0xCC, 0..255)
-
-    /** 激活模块/分类标题字体颜色 R/G/B (0~255) */
-    val activeTextColorR by int("ActiveColor-R", 0x56, 0..255)
-    val activeTextColorG by int("ActiveColor-G", 0xB4, 0..255)
-    val activeTextColorB by int("ActiveColor-B", 0xE9, 0..255)
-
-    // ==================== 便捷访问 (供 ClickGuiScreen 读取) ====================
-    fun getScale(): Float = try { guiScale } catch (_: Exception) { 1.0f }
-    fun getBgAlphaFloat(): Float = try { bgAlpha } catch (_: Exception) { 0.69f }
-
-    /** 构建面板背景颜色 ARGB: Alpha=bgAlpha*255, R=bgColorR, G=bgColorG, B=bgColorB */
-    fun getBgColor(): Int {
-        return try {
-            val a = (getBgAlphaFloat() * 255f).toInt().coerceIn(0, 255)
-            (a shl 24) or (bgColorR shl 16) or (bgColorG shl 8) or bgColorB
-        } catch (_: Exception) { 0xB00D0D12.toInt() }
-    }
-
-    /** 构建未激活字体颜色 ARGB: Alpha=FF, R=textColorR, G=textColorG, B=textColorB */
-    fun getTextColor(): Int {
-        return try {
-            0xFF000000.toInt() or (textColorR shl 16) or (textColorG shl 8) or textColorB
-        } catch (_: Exception) { 0xFFC8C8CC.toInt() }
-    }
-
-    /** 构建激活/标题字体颜色 ARGB: Alpha=FF, R=activeTextColorR, G=activeTextColorG, B=activeTextColorB */
-    fun getActiveTextColor(): Int {
-        return try {
-            0xFF000000.toInt() or (activeTextColorR shl 16) or (activeTextColorG shl 8) or activeTextColorB
-        } catch (_: Exception) { 0xFF56B4E9.toInt() }
-    }
-
-    // ==================== 模块行为 ====================
     override val running get() = true
 
-    @Suppress("unused")
-    private val keyHandler = handler<KeyboardKeyEvent> { event ->
-        if (event.action != 1) return@handler
-        val code = event.keyCode
-        // ESC 关闭: GLFW_KEY_ESCAPE = 256
-        // 【修复】ESC 仅用于关闭, 绝不开打; 只有当前屏幕是 ClickGuiScreen 时才响应。
-        // 关键点: 不要在按键事件内同步 setScreen(null)——
-        // 本事件在 mixin 头部触发, 若同步关闭, 原版 KeyboardHandler 会按「无界面」分支
-        // 把本次 ESC 注册到 keyPause, 同帧弹出游戏暂停菜单。
-        // 改为延迟到下一 tick 关闭: 本次 ESC 由屏幕自身(keyPressed/shouldCloseOnEsc)
-        // 正常消费, 游戏侧完全收不到该按键, 暂停菜单不会出现。
-        if (code == GLFW.GLFW_KEY_ESCAPE) {
-            val currentScreen = mc.gui.screen()
-            if (currentScreen is ClickGuiScreen) {
-                mc.execute { closeGui() }
+    val scale by float("Scale", 1f, 0.5f..2f).onChanged {
+        EventManager.callEvent(ClickGuiScaleChangeEvent(it))
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    val searchBarAutoFocus by boolean("SearchBarAutoFocus", true).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    /**
+     * Pseudo-glass theme: no real backdrop-blur pass exists in this project's
+     * render API, so this fakes the "frosted glass" look with a lower-alpha
+     * background, a static grain overlay, and a bright edge highlight
+     * instead of a true blur. See GuiRender2D.frostOverlay's comment.
+     */
+    val glassMode by boolean("GlassMode", false).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    val isInSearchBar: Boolean
+        get() {
+            if (!isTyping) {
+                return false
             }
-            // 无论屏幕是什么状态, ESC 分支到此为止, 不做任何打开操作
-            return@handler
-        }
-        // 只精确响应右 Shift (GLFW_KEY_RIGHT_SHIFT = 344)
-        if (code == GLFW.GLFW_KEY_RIGHT_SHIFT) {
-            val currentScreen = mc.gui.screen()
-            if (currentScreen == null) {
-                openGui()
-            } else if (currentScreen is ClickGuiScreen) {
-                closeGui()
-            }
-        }
-    }
 
-    override suspend fun enabledEffect() {
-        if (mc.gui.screen() !is ClickGuiScreen) {
-            openGui()
+            val screen = mc.gui.screen() ?: return false
+            return screen is NativeClickGuiScreen && screen.isSearchFocused()
         }
-    }
 
-    private fun openGui() {
-        try {
-            mc.gui.setScreen(ClickGuiScreen())
-            return
-        } catch (_: NoSuchMethodError) {
-        }
-        try {
-            mc.javaClass.getMethod("setScreen", net.minecraft.client.gui.screens.Screen::class.java)
-                ?.invoke(mc, ClickGuiScreen())
-            return
-        } catch (_: Exception) {
-        }
-        mc.execute {
-            mc.gui.setScreen(ClickGuiScreen())
-        }
-    }
-
-    private fun closeGui() {
-        try {
-            mc.gui.setScreen(null)
-            return
-        } catch (_: NoSuchMethodError) {
-        }
-        try {
-            mc.javaClass.getMethod("setScreen", net.minecraft.client.gui.screens.Screen::class.java)
-                ?.invoke(mc, null)
-            return
-        } catch (_: Exception) {
-        }
-        mc.execute {
-            mc.gui.setScreen(null)
-        }
-    }
-
-    // ==================== 兼容 API ====================
+    /**
+     * No-op compatibility shims. The browser-based ClickGUI these originally
+     * pushed state to is gone (this module now opens a plain native Screen),
+     * but several call sites still invoke them after mutating config -
+     * AutoConfig, the bind/value/targets/models commands, ModelManager,
+     * ScriptManager, ThemeManager, ScreenManager - so they stay as empty
+     * methods rather than breaking those callers. The native screen reads
+     * config live on every render, so it never needs an explicit refresh.
+     */
     fun sync() {}
+
     fun invalidate() {}
-    val isInSearchBar: Boolean get() = false
-    fun updateStandaloneScreen(): Boolean = false
+
+    object Snapping : ToggleableValueGroup(this, "Snapping", true) {
+
+        val gridSize by int("GridSize", 10, 1..100, "px").onChanged {
+            EventManager.callEvent(ClickGuiValueChangeEvent(ModuleClickGui))
+        }
+
+        init {
+            inner.find { it.name == "Enabled" }?.onChanged {
+                EventManager.callEvent(ClickGuiValueChangeEvent(ModuleClickGui))
+            }
+        }
+    }
+
+    init {
+        tree(Snapping)
+    }
+
+    override fun onEnabled() {
+        if (!LiquidBounce.isInitialized || !inGame) {
+            return
+        }
+
+        mc.execute {
+            mc.gui.setScreen(NativeClickGuiScreen())
+        }
+        super.onEnabled()
+    }
+
 }
