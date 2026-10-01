@@ -229,20 +229,35 @@ data class InputBind(
         /**
          * Performs the platform (OS) specified render name of a modifier.
          */
-        val platformRenderName: String get() = when (Util.getPlatform()) {
-            Util.OS.WINDOWS -> when (this) {
-                CONTROL -> "Ctrl"
-                SUPER -> "\u229e"
+        /**
+         * Android 环境下返回简化文本，避免特殊符号不兼容。
+         */
+        val platformRenderName: String get() {
+            // 检测是否为 Android 环境（无 PlatformUtils 依赖）
+            val isAndroid = System.getProperty("java.vendor")?.contains("Android") == true ||
+                System.getProperty("os.name")?.lowercase()?.contains("android") == true
+            return when {
+                isAndroid -> when (this) {
+                    SHIFT -> "Shift"
+                    CONTROL -> "Ctrl"
+                    ALT -> "Alt"
+                    SUPER -> "Super"
+                    else -> tag
+                }
+                Util.getPlatform() == Util.OS.WINDOWS -> when (this) {
+                    CONTROL -> "Ctrl"
+                    SUPER -> "\u229e"
+                    else -> tag
+                }
+                Util.getPlatform() == Util.OS.OSX -> when (this) {
+                    SHIFT -> "\u21e7"
+                    CONTROL -> "^"
+                    ALT -> "\u2325"
+                    SUPER -> "\u2318"
+                    else -> tag
+                }
                 else -> tag
             }
-            Util.OS.OSX -> when (this) {
-                SHIFT -> "\u21e7"
-                CONTROL -> "^"
-                ALT -> "\u2325"
-                SUPER -> "\u2318"
-                // else -> choiceName
-            }
-            else -> tag
         }
 
         companion object {
