@@ -41,36 +41,20 @@ class CustomOverlay(
 
     var visible: Boolean
         set(value) {
-            if (value && browser == null) {
-                open()
-            }
-
-            browser?.visible = value
+            // ===== Android: 完全忽略所有设置请求 =====
+            // 原逻辑会调用 open()，现在什么都不做
         }
-        get() = browser?.visible ?: false
+        get() = false   // 始终返回 false，确保外界认为它不可见
 
     fun open() {
-        if (browser != null) {
-            return
-        }
-
-        if (!BrowserBackendManager.isInitialized) {
-            if (!isBrowserDisabled) {
-                logger.error("Could not open custom overlay because the browser backend is not initialized.")
-            }
-            return
-        }
-
-        browser = ThemeManager.openImmediate(
-            screenType,
-            true,
-            browserSettings
-        )
+        // ===== Android: 不打开任何浏览器 =====
+        // 原逻辑会检查后端并创建 browser，现在直接返回
+        return
     }
 
     fun close() {
-        browser?.close()
-        browser = null
+        // ===== Android: 不关闭任何浏览器 =====
+        // 原逻辑会调用 browser?.close()，现在什么都不做
     }
 
 }
