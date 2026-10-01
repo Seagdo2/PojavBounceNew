@@ -204,7 +204,7 @@ dependencies {
 addResolvedDependencies(jij, "compileOnly", "include", "api")
 
 tasks.processResources {
-    dependsOn("buildTheme")
+    //dependsOn("buildTheme") // Android: 禁用前端 Theme 构建
 
     from("src-theme/dist") {
         into("resources/liquidbounce/themes/liquidbounce")
@@ -271,6 +271,7 @@ val npmVersion = providers.exec {
 }.standardOutput.asText.map(String::trim)
 
 tasks.register<NpmTask>("npmInstallTheme") {
+    enabled = false // Android: 禁用
     description = "Installs the locked dependencies for the web theme"
     workingDir = file("src-theme")
     args.set(listOf("ci"))
@@ -281,6 +282,7 @@ tasks.register<NpmTask>("npmInstallTheme") {
 }
 
 tasks.register<NpmTask>("buildTheme") {
+    enabled = false // Android: 禁用
     description = "Builds the distributable web theme assets"
     dependsOn("npmInstallTheme")
     workingDir = file("src-theme")
@@ -492,7 +494,8 @@ tasks.register<Copy>("copyZipInclude") {
 }
 
 tasks.named<Jar>("sourcesJar") {
-    dependsOn("buildTheme", "generateGitProperties")
+    //dependsOn("buildTheme", "generateGitProperties") // Android: 禁用前端 Theme 构建
+    dependsOn("generateGitProperties")
     from("src-theme/dist") {
         into("resources/liquidbounce/themes/liquidbounce")
     }
