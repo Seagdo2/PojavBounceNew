@@ -88,25 +88,30 @@ class FontFace(
         }
 
         withContext(Dispatchers.Default) {
-            val fontId = synchronized(fontRasterizationLock) {
-                val graphics = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics()
-                try {
-                    graphics.font = font
-                    val metrics = graphics.fontMetrics
-                    val lineMetrics = font.getLineMetrics("Ag", graphics.fontRenderContext)
-                    FontId(
-                        style,
-                        font,
-                        metrics.height.toFloat(),
-                        metrics.ascent.toFloat(),
-                        lineMetrics.underlineOffset,
-                        lineMetrics.underlineThickness,
-                        lineMetrics.strikethroughOffset,
-                        lineMetrics.strikethroughThickness,
-                    )
-                } finally {
-                    graphics.dispose()
+            val fontId = try {
+                synchronized(fontRasterizationLock) {
+                    val graphics = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics()
+                    try {
+                        graphics.font = font
+                        val metrics = graphics.fontMetrics
+                        val lineMetrics = font.getLineMetrics("Ag", graphics.fontRenderContext)
+                        FontId(
+                            style,
+                            font,
+                            metrics.height.toFloat(),
+                            metrics.ascent.toFloat(),
+                            lineMetrics.underlineOffset,
+                            lineMetrics.underlineThickness,
+                            lineMetrics.strikethroughOffset,
+                            lineMetrics.strikethroughThickness,
+                        )
+                    } finally {
+                        graphics.dispose()
+                    }
                 }
+            } catch (e: java.awt.HeadlessException) {
+                // 无头环境（如 Android）使用默认度量值
+                FontId(style, font, 10f, 8f, 0f, 0f, 0f, 0f)
             }
 
             styles[style] = fontId
