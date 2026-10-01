@@ -49,7 +49,7 @@ import net.minecraft.client.gui.screens.Screen
  * The client in-game dashboard.
  */
 
-object ModuleHud : ClientModule("HUD", ModuleCategories.RENDER, state = true, hide = true) {
+object ModuleHud : ClientModule("HUD", ModuleCategories.RENDER, state = false, hide = true) {
 
     override val running
         get() = this.enabled && !isDestructed
@@ -92,6 +92,7 @@ object ModuleHud : ClientModule("HUD", ModuleCategories.RENDER, state = true, hi
 
     init {
         tree(Blur)
+        this.enabled = false // Android: 强制关闭（浏览器 HUD 不可用）
     }
 
     object Blur : ToggleableValueGroup(ModuleHud, "Blur", enabled = true) {
