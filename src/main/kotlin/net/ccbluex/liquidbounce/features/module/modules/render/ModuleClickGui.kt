@@ -55,6 +55,7 @@ import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.ClickGuiScaleChangeEvent
 import net.ccbluex.liquidbounce.event.events.ClickGuiValueChangeEvent
+import net.ccbluex.liquidbounce.features.addon.AddonApi
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.isTyping
@@ -67,12 +68,13 @@ import net.ccbluex.liquidbounce.utils.client.inGame
  * Shows you an easy-to-use menu to toggle and configure modules.
  */
 
+@AddonApi
 object ModuleClickGui :
     ClientModule("ClickGUI", ModuleCategories.RENDER, bind = InputConstants.KEY_RSHIFT, disableActivation = true) {
 
     override val running get() = true
 
-    val scale by float("Scale", 1f, 0.5f..2f).onChanged {
+    val scale by float("Scale", 0.8f, 0.5f..2f).onChanged {
         EventManager.callEvent(ClickGuiScaleChangeEvent(it))
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
@@ -90,6 +92,30 @@ object ModuleClickGui :
     val glassMode by boolean("GlassMode", false).onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
+
+    val accentColor by int("AccentColor", 0xFF4677FF.toInt(), 0..0xFFFFFFFF.toInt()).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    val fontSize by float("FontSize", 0.8f, 0.5f..1.5f).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    val panelWidth by int("PanelWidth", 200, 150..350).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    val panelMaxHeight by int("PanelMaxHeight", 300, 100..600).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    val bgAlpha by int("BackgroundAlpha", 100, 0..255).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+
+    val bgColorR by int("BgColor-R", 0, 0..255).onChanged { EventManager.callEvent(ClickGuiValueChangeEvent(this)) }
+    val bgColorG by int("BgColor-G", 0, 0..255).onChanged { EventManager.callEvent(ClickGuiValueChangeEvent(this)) }
+    val bgColorB by int("BgColor-B", 0, 0..255).onChanged { EventManager.callEvent(ClickGuiValueChangeEvent(this)) }
 
     /**
      * Per-panel body height: how many pixels of a category panel's module
