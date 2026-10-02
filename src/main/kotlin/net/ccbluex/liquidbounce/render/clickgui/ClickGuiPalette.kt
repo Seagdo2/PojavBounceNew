@@ -32,16 +32,15 @@ object ClickGuiPalette {
     const val TEXT: Int = 0xFFFFFFFF.toInt()
     const val TEXT_DIMMED: Int = 0xFFD3D3D3.toInt()
 
-    // ---- base-N: black at N% alpha (the whole clickgui is built from
-    // layering these over the 3D world, there is no opaque backdrop) ----
-    const val BASE_30: Int = 0x4C000000
-    const val BASE_36: Int = 0x5C000000
-    const val BASE_50: Int = 0x80000000.toInt()
-    const val BASE_60: Int = 0x99000000.toInt()
-    const val BASE_70: Int = 0xB2000000.toInt()
-    const val BASE_80: Int = 0xCC000000.toInt()
-    const val BASE_85: Int = 0xD9000000.toInt()
-    const val BASE_90: Int = 0xE6000000.toInt()
+    // ---- base-N: black at N% alpha, lowered to ~100/255 max ----
+    const val BASE_30: Int = 0x1E000000
+    const val BASE_36: Int = 0x24000000
+    const val BASE_50: Int = 0x32000000
+    const val BASE_60: Int = 0x3C000000
+    const val BASE_70: Int = 0x46000000
+    const val BASE_80: Int = 0x50000000
+    const val BASE_85: Int = 0x55000000
+    const val BASE_90: Int = 0x5A000000
 
     // ---- panel ---------------------------------------------------------
     const val PANEL_HEADER_BG: Int = BASE_90
@@ -56,10 +55,10 @@ object ClickGuiPalette {
     // shows through), a tiled grain overlay (GuiRender2D.frostOverlay) to
     // read as frosted rather than just plain see-through, and a bright,
     // thin edge highlight (the classic "light catching a glass edge" cue).
-    const val GLASS_PANEL_HEADER_BG: Int = 0x80000000.toInt()
-    const val GLASS_PANEL_BODY_BG: Int = 0x59000000
-    const val GLASS_SEARCH_BG: Int = 0x80000000.toInt()
-    const val GLASS_EDGE_HIGHLIGHT: Int = 0x40FFFFFF
+    const val GLASS_PANEL_HEADER_BG: Int = 0x32000000
+    const val GLASS_PANEL_BODY_BG: Int = 0x28000000
+    const val GLASS_SEARCH_BG: Int = 0x32000000
+    const val GLASS_EDGE_HIGHLIGHT: Int = 0x20FFFFFF
 
     // ---- module row ------------------------------------------------------
     const val MODULE_HOVER_BG: Int = BASE_85
@@ -112,7 +111,7 @@ object ClickGuiPalette {
 
     // ---- misc ---------------------------------------------------------------------
     const val DIVIDER: Int = 0x1FFFFFFF
-    const val OVERLAY_BACKDROP: Int = 0x99000000.toInt()
+    const val OVERLAY_BACKDROP: Int = 0x64000000
 
     /** Replaces just the alpha channel of an ARGB int (0-255). */
     fun withAlpha(argb: Int, alpha: Int): Int =

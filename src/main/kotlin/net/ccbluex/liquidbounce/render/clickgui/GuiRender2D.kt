@@ -103,13 +103,27 @@ object GuiRender2D {
      * real textured-quad path (`drawTexQuad` / `TexQuadGuiElementRenderState`)
      * instead of mutating global shader-color state.
      */
-    fun icon(gfx: GuiGraphicsExtractor, texture: Identifier, x: Int, y: Int, size: Int, color: Int) {
+    fun icon(gfx: GuiGraphicsExtractor, texture: Identifier, x: Int, y: Int, size: Int, color: Int, rotation: Float = 0f) {
         val setup = Minecraft.getInstance().textureManager.getTexture(texture).textureSetup
-        gfx.drawTexQuad(
-            setup,
-            x0 = x.toFloat(), y0 = y.toFloat(), x1 = (x + size).toFloat(), y1 = (y + size).toFloat(),
-            argb = color,
-        )
+        if (rotation != 0f) {
+            val cx = x + size / 2f
+            val cy = y + size / 2f
+            gfx.pose().pushMatrix()
+            gfx.pose().translate(cx, cy)
+            gfx.pose().rotate(rotation * (Math.PI.toFloat() / 180f))
+            gfx.drawTexQuad(
+                setup,
+                x0 = -size / 2f, y0 = -size / 2f, x1 = size / 2f, y1 = size / 2f,
+                argb = color,
+            )
+            gfx.pose().popMatrix()
+        } else {
+            gfx.drawTexQuad(
+                setup,
+                x0 = x.toFloat(), y0 = y.toFloat(), x1 = (x + size).toFloat(), y1 = (y + size).toFloat(),
+                argb = color,
+            )
+        }
     }
 
     /** Clamp helpers used across the widgets for drag/slider math. */

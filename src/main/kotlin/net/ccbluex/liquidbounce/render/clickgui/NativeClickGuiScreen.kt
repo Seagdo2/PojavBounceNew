@@ -72,27 +72,16 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
 
     private fun buildPanels() {
         val grouped = ModuleManager.groupBy { it.category }
-        val marginX = 12
-        val marginY = 40
-        val gapX = 10
-        val gapY = 10
-        var tallestInRow = 0
-        var cursorX = marginX
+        val marginX = 10
+        val marginY = 20
+        val gapY = 4
         var cursorY = marginY
-        val logicalWidth = (width / scale()).toInt().takeIf { it > 0 } ?: 1280
 
         for ((category, modules) in grouped) {
-            val panel = NativePanel(category, modules, cursorX, cursorY)
+            val panel = NativePanel(category, modules, marginX, cursorY)
+            panel.collapsed = true
             panels += panel
-
-            val h = NativePanel.HEADER_HEIGHT + 40 // rough estimate before first layout pass
-            tallestInRow = maxOf(tallestInRow, h)
-            cursorX += NativePanel.WIDTH + gapX
-            if (cursorX + NativePanel.WIDTH > logicalWidth) {
-                cursorX = marginX
-                cursorY += tallestInRow + gapY
-                tallestInRow = 0
-            }
+            cursorY += NativePanel.HEADER_HEIGHT + gapY
         }
     }
 
