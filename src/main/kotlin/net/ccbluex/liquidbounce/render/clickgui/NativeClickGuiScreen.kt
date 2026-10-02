@@ -1,21 +1,12 @@
 /*
  * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
  *
- * Native port of ClickGui.svelte: no dimmed backdrop (the game world stays
- * fully visible behind the panels, exactly like the web overlay), one
- * independently draggable+collapsible NativePanel per ModuleCategory, plus
- * a floating, centered NativeSearchBar on top of everything.
+ * Native port of ClickGui.svelte: no dimmed backdrop, one independently
+ * draggable+collapsible NativePanel per ModuleCategory, plus a floating
+ * centered NativeSearchBar on top of everything.
  *
- * Wired to the real ModuleClickGui (features/module/modules/render/
- * ModuleClickGui.kt) rather than inventing separate settings: `Scale`
- * drives the pose scale applied here, `SearchBarAutoFocus` decides whether
- * the search pill grabs focus on open, and `Snapping` (enabled + GridSize)
- * is read by NativePanel on drag-release. See that file for where this
- * screen is actually opened from.
- *
- * Panels are laid out in a simple cascading grid on first open; positions
- * are only kept for the lifetime of this Screen instance (see README
- * "known gaps" for wiring persistence into ConfigSystem if that's wanted).
+ * FIX: button API changed from event.buttonInfo.button to event.button()
+ * FIX: panels now default to collapsed, stacked vertically in one column
  */
 package net.ccbluex.liquidbounce.render.clickgui
 
@@ -36,14 +27,10 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
     private val searchBar = NativeSearchBar { ModuleManager }
     private var activePanel: NativePanel? = null
 
-    /** [ModuleClickGui.isInSearchBar] reads this to suppress keybinds while typing,
-     * exactly like it previously checked the browser screen's own text-focus state. */
     fun isSearchFocused(): Boolean = searchBar.focused
 
     private fun scale(): Float = ModuleClickGui.scale.coerceIn(0.5f, 2f)
 
-    /** Converts a real mouse position into this screen's logical (pre-scale)
-     * coordinate space, since every widget below still thinks in unscaled px. */
     private fun toLogical(v: Double, s: Float): Int = (v / s).toInt()
 
     override fun init() {
@@ -54,29 +41,22 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
         }
     }
 
+    /**
+     * FIX: panels default to collapsed=true, stacked vertically in a single column.
+     * Each panel is directly below the previous one, not side-by-side.
+     */
     private fun buildPanels() {
         val grouped = ModuleManager.groupBy { it.category }
-        val marginX = 12
-        val marginY = 40
-        val gapX = 10
-        val gapY = 10
-        var tallestInRow = 0
-        var cursorX = marginX
+        val marginX = 10
+        val marginY = 20
+        val gapY = 4
         var cursorY = marginY
-        val logicalWidth = (width / scale()).toInt().takeIf { it > 0 } ?: 1280
 
         for ((category, modules) in grouped) {
-            val panel = NativePanel(category, modules, cursorX, cursorY)
+            val panel = NativePanel(category, modules, marginX, cursorY)
+            panel.collapsed = true // FIX: 默认收起
             panels += panel
-
-            val h = NativePanel.HEADER_HEIGHT + 40 // rough estimate before first layout pass
-            tallestInRow = maxOf(tallestInRow, h)
-            cursorX += NativePanel.WIDTH + gapX
-            if (cursorX + NativePanel.WIDTH > logicalWidth) {
-                cursorX = marginX
-                cursorY += tallestInRow + gapY
-                tallestInRow = 0
-            }
+            cursorY += NativePanel.HEADER_HEIGHT + gapY
         }
     }
 
@@ -90,8 +70,6 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
         gfx.pose().pushMatrix()
         gfx.pose().scale(s, s)
 
-        // deliberately no dimmed backdrop / super.extractRenderState() background fill -
-        // the whole point of this screen is that the game stays visible
         for (panel in panels) {
             panel.render(gfx, lmx, lmy, logicalWidth, logicalHeight)
         }
@@ -100,16 +78,19 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
         gfx.pose().popMatrix()
     }
 
+    /**
+     * FIX: use event.button() instead of event.buttonInfo.button
+     * The original MC 1.21 DroneControlScreen uses click.button(), not click.buttonInfo.button.
+     */
     override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
         val s = scale()
         val mx = toLogical(event.x, s)
         val my = toLogical(event.y, s)
-        val button = event.buttonInfo.button
+        val button = event.button()
         val logicalWidth = (width / s).toInt()
 
         if (searchBar.mouseClicked(logicalWidth, mx, my, button)) return true
 
-        // topmost (last-rendered) panel gets first refusal, then bring it to front
         for (panel in panels.asReversed()) {
             if (panel.mouseClicked(mx, my, button)) {
                 activePanel = panel
@@ -125,7 +106,7 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
         val s = scale()
         val mx = toLogical(event.x, s)
         val my = toLogical(event.y, s)
-        val button = event.buttonInfo.button
+        val button = event.button()
         activePanel?.let { if (it.mouseDragged(mx, my, button, dx / s, dy / s)) return true }
         for (panel in panels.asReversed()) {
             if (panel.mouseDragged(mx, my, button, dx / s, dy / s)) return true
@@ -135,7 +116,7 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
 
     override fun mouseReleased(event: MouseButtonEvent): Boolean {
         val s = scale()
-        val button = event.buttonInfo.button
+        val button = event.button()
         activePanel = null
         var consumed = false
         for (panel in panels) {
@@ -168,7 +149,5 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
         return super.keyPressed(event)
     }
 
-    /** The game keeps rendering/ticking behind the GUI (it's an overlay, not
-     * a menu that pauses the world) - matches the web ClickGUI's behaviour. */
     override fun isPauseScreen(): Boolean = false
 }
