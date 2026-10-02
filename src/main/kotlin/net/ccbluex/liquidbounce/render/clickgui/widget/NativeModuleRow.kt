@@ -1,12 +1,22 @@
 /*
  * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
  *
- * Native port of Module.svelte. Interaction model:
+ * Native port of Module.svelte. Interaction model copied exactly from the
+ * source component:
  *   - left click on the name row  -> toggle the module on/off
  *   - right click on the name row -> toggle the settings panel open/closed
+ *     (Module.svelte: `on:contextmenu|preventDefault={toggleExpanded}`)
+ *   - the small chevron button on the right is a second way to do the same
+ *     right-click action, and stops the click from also toggling the module
+ *     (Module.svelte's toggleExpanded() calls `e.stopPropagation()`)
+ *   - when expanded, settings render below with a left accent border and a
+ *     darker background (module-settings-background / -border-color)
  *
- * FIX: ROW_HEIGHT lowered from 30 to 22
- * FIX: text scale applied via pose matrix using ModuleClickGui.fontSize
+ * Expand/collapse animation: identical approach to NativePanel - a float
+ * `expandAnim` (0=collapsed, 1=expanded) is eased every frame and used only
+ * for the drawn body height. `totalHeight()` always returns the logical
+ * (non-animated) height so layout and hit-testing are never affected by
+ * animation state.
  */
 package net.ccbluex.liquidbounce.render.clickgui.widget
 
@@ -23,16 +33,31 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 class NativeModuleRow(val module: ClientModule) {
 
     companion object {
-        const val ROW_HEIGHT = 22
-        private const val ARROW_ZONE = 36
+        const val ROW_HEIGHT = 30
+        private const val ARROW_ZONE = 40
+        /** Expand animation easing factor (0..1, higher = faster). */
+        private const val EXPAND_EASE = 0.20f
     }
 
     var expanded: Boolean = false
         private set
 
+    /** Set by the search-bar locate flow (right-click a result); draws an accent box like Module.svelte `.highlight`. */
+    var highlighted: Boolean = false
+
+    /**
+     * Expand animation progress: 0 = collapsed, 1 = expanded.
+     * Eased toward the target every frame. Used only for rendering;
+     * [totalHeight] always reports the logical height.
+     */
+    private var expandAnim = 0f
+    private var expandAnimTarget = 0f
+
     private var settingRows: List<SettingRow>? = null
     private var hovered = false
 
+    /** Module names the config system flags as internal and never shows -
+     * mirrors GenericSetting's own `name !== "Bind" && name !== "Hidden"` filter. */
     private fun visibleValues() = module.get().filter { it.name != "Bind" && it.name != "Hidden" }
 
     val hasSettings: Boolean get() = visibleValues().isNotEmpty()
@@ -46,56 +71,98 @@ class NativeModuleRow(val module: ClientModule) {
         return rows
     }
 
+    /** Full (non-animated) height of the settings body (excluding the row itself). */
+    private fun settingsBodyHeight(width: Int): Int {
+        if (!hasSettings) return 0
+        return rowsFor(width).sumOf { it.height(width) + 2 } + 8
+    }
+
+    /**
+     * Total height including the *animated* settings body. Reporting the
+     * eased height (not a snap to 0 when [expanded] flips) is what lets
+     * sibling module rows slide up/down with the collapse/expand animation
+     * instead of jumping while the settings content is still visible.
+     */
     fun totalHeight(width: Int): Int {
-        if (!expanded) return ROW_HEIGHT
-        val settingsWidth = width
-        val inner = rowsFor(settingsWidth).sumOf { it.height(settingsWidth) + 2 }
-        return ROW_HEIGHT + inner + 6
+        tickExpandAnim()
+        val animH = (settingsBodyHeight(width).toFloat() * expandAnim).toInt()
+        return ROW_HEIGHT + animH
+    }
+
+    /** Advance expand/collapse ease. Called from [totalHeight] so layout and
+     * drawing stay in sync even when a row is culled from the visible pass. */
+    private var expandAnimTickStamp = -1L
+    private fun tickExpandAnim() {
+        // At most one ease step per millisecond-bucket so totalHeight+render
+        // in the same frame do not double-speed the animation.
+        val stamp = System.nanoTime() / 1_000_000L
+        if (stamp == expandAnimTickStamp) return
+        expandAnimTickStamp = stamp
+        expandAnimTarget = if (expanded) 1f else 0f
+        expandAnim += (expandAnimTarget - expandAnim) * EXPAND_EASE
+        if (kotlin.math.abs(expandAnimTarget - expandAnim) < 0.01f) expandAnim = expandAnimTarget
     }
 
     fun render(gfx: GuiGraphicsExtractor, x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int) {
+        // expandAnim is advanced in totalHeight(), which the panel always
+        // calls before render for layout - keeps height and clip in sync.
+        // Still tick here as a fallback when render is invoked without a prior
+        // totalHeight (e.g. tests / future callers).
+        tickExpandAnim()
+
         hovered = mouseX in x..(x + width) && mouseY in y..(y + ROW_HEIGHT)
         if (hovered) {
             gfx.fill(x, y, x + width, y + ROW_HEIGHT, ClickGuiPalette.MODULE_HOVER_BG)
         }
+        // Web Module.svelte `.highlight::before` - 2px accent border around the name row
+        if (highlighted) {
+            GuiRender2D.strokeRoundedRect(gfx, x + 1, y + 1, width - 2, ROW_HEIGHT - 2, 2, 2, ClickGuiPalette.ACCENT)
+        }
 
         val font = Minecraft.getInstance().font
         val textColor = if (module.enabled) ClickGuiPalette.MODULE_ENABLED else ClickGuiPalette.TEXT
-        val maxNameWidth = width - 16 - (if (hasSettings) ARROW_ZONE else 8)
+        val maxNameWidth = width - 20 - (if (hasSettings) ARROW_ZONE else 12)
         val name = GuiRender2D.ellipsize(gfx, module.name, maxNameWidth)
-
-        // 应用字体缩放
-        val fs = ModuleClickGui.fontSize
-        if (fs != 1.0f) {
-            gfx.pose().pushMatrix()
-            gfx.pose().scale(fs, fs)
-            gfx.text(font, name, ((x + 8) / fs).toInt(), ((y + (ROW_HEIGHT - font.lineHeight) / 2) / fs).toInt(), textColor, false)
-            gfx.pose().popMatrix()
-        } else {
-            gfx.text(font, name, x + 8, y + (ROW_HEIGHT - font.lineHeight) / 2, textColor, false)
-        }
+        gfx.text(font, name, x + 12, y + (ROW_HEIGHT - font.lineHeight) / 2, textColor, false)
 
         if (hasSettings) {
             val arrowCx = x + width - ARROW_ZONE / 2
             val arrowCy = y + ROW_HEIGHT / 2
-            GuiRender2D.icon(gfx, ClickGuiIcons.SETTINGS_EXPAND, arrowCx - 4, arrowCy - 4, 8, ClickGuiPalette.PANEL_TOGGLE_ICON)
+            // Web Module.svelte: collapsed = rotate(-90deg), expanded = rotate(0)
+            val rot = if (expanded) 0f else -90f
+            val arrowColor = if (expanded) ClickGuiPalette.PANEL_TOGGLE_ICON else ClickGuiPalette.withAlpha(ClickGuiPalette.PANEL_TOGGLE_ICON, 128)
+            GuiRender2D.icon(gfx, ClickGuiIcons.SETTINGS_EXPAND, arrowCx - 4, arrowCy - 4, 8, arrowColor, rot)
         }
 
-        if (expanded) {
+        // Animated body height for rendering only. Uses the full (un-collapsed)
+        // settings body height multiplied by the animation progress, so the
+        // body smoothly shrinks/grows instead of snapping.
+        val fullBodyH = settingsBodyHeight(width)
+        val animBodyH = (fullBodyH.toFloat() * expandAnim).toInt()
+        if (animBodyH > 0) {
             val bodyY = y + ROW_HEIGHT
-            val rows = rowsFor(width)
-            val bodyH = rows.sumOf { it.height(width) + 2 } + 6
-            gfx.fill(x, bodyY, x + width, bodyY + bodyH, if (ModuleClickGui.glassMode) ClickGuiPalette.withAlpha(ClickGuiPalette.MODULE_SETTINGS_BG, 56) else ClickGuiPalette.MODULE_SETTINGS_BG)
-            gfx.fill(x, bodyY, x + 3, bodyY + bodyH, ClickGuiPalette.MODULE_SETTINGS_BORDER)
+            gfx.fill(x, bodyY, x + width, bodyY + animBodyH, if (ModuleClickGui.glassMode) ClickGuiPalette.withAlpha(ClickGuiPalette.MODULE_SETTINGS_BG, 56) else ClickGuiPalette.MODULE_SETTINGS_BG)
+            gfx.fill(x, bodyY, x + 4, bodyY + animBodyH, ClickGuiPalette.MODULE_SETTINGS_BORDER)
 
-            var rowY = bodyY + 4
+            // Clip setting rows to the animated body height so they shrink
+            // away with the background instead of staying fully visible until
+            // expandAnim hits 0 and the whole block is skipped.
+            gfx.enableScissor(x, bodyY, x + width, bodyY + animBodyH)
+            val rows = rowsFor(width)
+            var rowY = bodyY + 6
             for (row in rows) {
-                row.render(gfx, x, rowY, width, mouseX, mouseY)
+                // Skip rows that start entirely below the scissor (cheap cull)
+                if (rowY < bodyY + animBodyH) {
+                    row.render(gfx, x, rowY, width, mouseX, mouseY)
+                }
                 rowY += row.height(width) + 2
             }
+            gfx.disableScissor()
         }
     }
 
+    /** Returns true if this row consumed the click. [width] must match what
+     * was passed to render() so hit-testing lines up with what's drawn. */
     fun mouseClicked(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
         if (mouseX !in x..(x + width)) return false
 
@@ -105,11 +172,11 @@ class NativeModuleRow(val module: ClientModule) {
                 toggleExpanded()
                 return true
             }
-            if (button == 1) {
+            if (button == 1) { // right click anywhere else on the row
                 if (hasSettings) toggleExpanded()
                 return true
             }
-            if (button == 0) {
+            if (button == 0) { // left click -> toggle module
                 module.enabled = !module.enabled
                 return true
             }
@@ -117,7 +184,7 @@ class NativeModuleRow(val module: ClientModule) {
         }
 
         if (expanded && mouseY > y + ROW_HEIGHT) {
-            var rowY = y + ROW_HEIGHT + 4
+            var rowY = y + ROW_HEIGHT + 6
             for (row in rowsFor(width)) {
                 if (mouseY in rowY..(rowY + row.height(width))) {
                     return row.mouseClicked(x, rowY, width, mouseX, mouseY, button)
@@ -130,7 +197,7 @@ class NativeModuleRow(val module: ClientModule) {
 
     fun mouseDragged(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
         if (!expanded) return false
-        var rowY = y + ROW_HEIGHT + 4
+        var rowY = y + ROW_HEIGHT + 6
         for (row in rowsFor(width)) {
             if (row.mouseDragged(x, rowY, width, mouseX, mouseY, button)) return true
             rowY += row.height(width) + 2
@@ -148,5 +215,15 @@ class NativeModuleRow(val module: ClientModule) {
 
     private fun toggleExpanded() {
         expanded = !expanded
+    }
+
+    /** Restores the expanded state from a saved layout snapshot (see
+     * ClickGuiLayoutStore). Only meaningful for rows that [hasSettings];
+     * rows without settings are never expandable, so callers filter first. */
+    fun setExpanded(value: Boolean) {
+        expanded = value
+        // snap the animation so restored rows don't animate on first open
+        expandAnim = if (value) 1f else 0f
+        expandAnimTarget = expandAnim
     }
 }
