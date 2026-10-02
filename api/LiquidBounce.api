@@ -949,16 +949,16 @@ public final class net/ccbluex/liquidbounce/features/module/modules/render/Modul
 	public final fun getBgColorR ()I
 	public final fun getFontSize ()F
 	public final fun getGlassMode ()Z
+	public final fun getPanelHeight ()I
+	public final fun getPanelMaxHeight ()I
+	public final fun getPanelWidth ()I
 	public fun getRunning ()Z
 	public final fun getScale ()F
 	public final fun getSearchBarAutoFocus ()Z
-	public final fun getPanelWidth ()I
-	public final fun getPanelMaxHeight ()I
 	public final fun invalidate ()V
 	public final fun isInSearchBar ()Z
 	public fun onEnabled ()V
 	public final fun sync ()V
-	public final fun updateStandaloneScreen ()Z
 }
 
 public final class net/ccbluex/liquidbounce/integration/backend/BrowserAccelerationFlags {
