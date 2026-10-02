@@ -942,7 +942,10 @@ public final class net/ccbluex/liquidbounce/features/module/modules/player/autos
 
 public final class net/ccbluex/liquidbounce/features/module/modules/render/ModuleClickGui : net/ccbluex/liquidbounce/features/module/ClientModule {
 	public static final field INSTANCE Lnet/ccbluex/liquidbounce/features/module/modules/render/ModuleClickGui;
+	public final fun getGlassMode ()Z
 	public fun getRunning ()Z
+	public final fun getScale ()F
+	public final fun getSearchBarAutoFocus ()Z
 	public final fun invalidate ()V
 	public final fun isInSearchBar ()Z
 	public fun onEnabled ()V
