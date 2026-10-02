@@ -70,6 +70,7 @@ class NativePanel(
      * frame, so an external write still animates smoothly instead of snapping.
      */
     var collapsed = false
+        public set
 
     /**
      * Collapse animation progress: 0 = fully collapsed, 1 = fully expanded.
@@ -174,18 +175,26 @@ class NativePanel(
         // During collapse animation, clip the body to the animated height
         // so content slides out of view instead of overlapping the next panel.
         // Use a guard to avoid enabling a zero/negative scissor rect.
-        if (bh > 0) {
-            gfx.enableScissor(x, bodyY, x + WIDTH, bodyY + bh)
-        }
-        var rowY = bodyY - scroll
-        for (row in rows) {
-            val rh = row.totalHeight(WIDTH - 8)
-            if (rowY + rh >= bodyY && rowY <= bodyY + bh) {
-                row.render(gfx, x + 4, rowY, WIDTH - 8, mouseX, mouseY)
+        // 防闪退：scissor 矩形必须裁剪到屏幕可见范围内，
+        // 否则离屏面板会产生 0x0 矩形导致 FrontendRenderPass 崩溃
+        val mc = Minecraft.getInstance()
+        val s = ModuleClickGui.scale
+        val screenW = (mc.window.guiScaledWidth / s).toInt().coerceAtLeast(1)
+        val screenH = (mc.window.guiScaledHeight / s).toInt().coerceAtLeast(1)
+        val clipX0 = maxOf(x, 0)
+        val clipY0 = maxOf(bodyY, 0)
+        val clipX1 = minOf(x + WIDTH, screenW)
+        val clipY1 = minOf(bodyY + bh, screenH)
+        if (bh > 0 && clipX1 > clipX0 && clipY1 > clipY0) {
+            gfx.enableScissor(clipX0, clipY0, clipX1, clipY1)
+            var rowY = bodyY - scroll
+            for (row in rows) {
+                val rh = row.totalHeight(WIDTH - 8)
+                if (rowY + rh >= bodyY && rowY <= bodyY + bh) {
+                    row.render(gfx, x + 4, rowY, WIDTH - 8, mouseX, mouseY)
+                }
+                rowY += rh
             }
-            rowY += rh
-        }
-        if (bh > 0) {
             gfx.disableScissor()
         }
 
