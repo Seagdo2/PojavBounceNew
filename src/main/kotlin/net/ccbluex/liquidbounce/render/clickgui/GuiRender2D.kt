@@ -20,6 +20,8 @@
  */
 package net.ccbluex.liquidbounce.render.clickgui
 
+import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.renderpearl.api.textures.FilterMode
 import net.ccbluex.liquidbounce.render.drawCircle
 import net.ccbluex.liquidbounce.render.drawHorizontalLine
 import net.ccbluex.liquidbounce.render.drawQuadXYWH
@@ -127,8 +129,8 @@ object GuiRender2D {
     fun frostOverlay(gfx: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, alpha: Int = 22, tileSize: Int = 48) {
         if (w <= 0 || h <= 0 || alpha <= 0) return
         val texture = Minecraft.getInstance().textureManager.getTexture(ClickGuiIcons.GLASS_NOISE)
-        val repeatSampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache()
-            .getRepeat(com.mojang.blaze3d.textures.FilterMode.LINEAR)
+        val repeatSampler = RenderSystem.getSamplerCache()
+            .getRepeat(FilterMode.LINEAR)
         val setup = texture.textureView.asTextureSetup(repeatSampler)
         val u2 = w.toFloat() / tileSize
         val v2 = h.toFloat() / tileSize
