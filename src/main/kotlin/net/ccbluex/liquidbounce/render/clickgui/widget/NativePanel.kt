@@ -62,8 +62,14 @@ class NativePanel(
 
     val rows: List<NativeModuleRow> = modules.sortedBy { it.name }.map { NativeModuleRow(it) }
 
+    /**
+     * Whether the module list body is collapsed (header only) or expanded.
+     * Publicly settable so NativeClickGuiScreen can restore the saved layout
+     * (panel.restore / search locate) without going through a click event.
+     * render() recomputes the collapse-animation target from this every
+     * frame, so an external write still animates smoothly instead of snapping.
+     */
     var collapsed = false
-        private set
 
     /**
      * Collapse animation progress: 0 = fully collapsed, 1 = fully expanded.
