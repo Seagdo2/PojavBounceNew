@@ -19,6 +19,7 @@
 
 package net.ccbluex.liquidbounce.render.engine.font
 
+import com.mojang.blaze3d.systems.RenderSystem
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import kotlinx.coroutines.CancellationException
@@ -189,11 +190,27 @@ class FontGlyphPageManager(
         commonHanWarmupJob = null
         unregister()
         this.dynamicFontManager.close()
-        this.dynamicPage.texture.close()
-        synchronized(staticPagesLock) {
-            this.staticPage.forEach { it.texture.close() }
-            this.staticPage.clear()
+
+        // GL textures may only be released on the render thread. close() can be
+        // reached from the JVM shutdown hook (LiquidBounce.shutdownClient is
+        // registered as a Runtime shutdown hook and runs on a non-render thread),
+        // where AbstractTexture.close() -> GlTexture.destroyImmediately() would
+        // throw "Rendersystem called from wrong thread" and abort the shutdown.
+        // When not on the render thread, just drop the references: the process is
+        // going down and the GL context is torn down with it, so the textures are
+        // reclaimed by the driver/OS regardless.
+        if (RenderSystem.isOnRenderThread()) {
+            this.dynamicPage.texture.close()
+            synchronized(staticPagesLock) {
+                this.staticPage.forEach { it.texture.close() }
+                this.staticPage.clear()
+            }
+        } else {
+            synchronized(staticPagesLock) {
+                this.staticPage.clear()
+            }
         }
+
         this.dynamicallyLoadedGlyphs.clear()
     }
 
