@@ -55,6 +55,7 @@ import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.ClickGuiScaleChangeEvent
 import net.ccbluex.liquidbounce.event.events.ClickGuiValueChangeEvent
+import net.ccbluex.liquidbounce.features.addon.AddonApi
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.isTyping
@@ -67,6 +68,7 @@ import net.ccbluex.liquidbounce.utils.client.inGame
  * Shows you an easy-to-use menu to toggle and configure modules.
  */
 
+@AddonApi
 object ModuleClickGui :
     ClientModule("ClickGUI", ModuleCategories.RENDER, bind = InputConstants.KEY_RSHIFT, disableActivation = true) {
 
@@ -113,6 +115,8 @@ object ModuleClickGui :
     fun sync() {}
 
     fun invalidate() {}
+
+    fun updateStandaloneScreen(): Boolean = false
 
     object Snapping : ToggleableValueGroup(this, "Snapping", true) {
 
