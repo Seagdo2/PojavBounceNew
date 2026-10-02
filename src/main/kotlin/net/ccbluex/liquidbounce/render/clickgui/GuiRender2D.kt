@@ -20,8 +20,6 @@
  */
 package net.ccbluex.liquidbounce.render.clickgui
 
-import com.mojang.blaze3d.systems.RenderSystem
-import com.mojang.renderpearl.api.textures.FilterMode
 import net.ccbluex.liquidbounce.render.drawCircle
 import net.ccbluex.liquidbounce.render.drawHorizontalLine
 import net.ccbluex.liquidbounce.render.drawQuadXYWH
@@ -103,13 +101,43 @@ object GuiRender2D {
      * real textured-quad path (`drawTexQuad` / `TexQuadGuiElementRenderState`)
      * instead of mutating global shader-color state.
      */
-    fun icon(gfx: GuiGraphicsExtractor, texture: Identifier, x: Int, y: Int, size: Int, color: Int) {
-        val setup = Minecraft.getInstance().textureManager.getTexture(texture).textureSetup
+    /**
+     * Draws a tinted icon texture. [rotationDegrees] rotates around the icon
+     * center (matches the web theme's CSS `transform: rotate(...)` on
+     * `.expand-arrow-icon` / panel toggle). 0 = as-authored; Module.svelte uses
+     * -90 when collapsed and 0 when expanded.
+     */
+    fun icon(
+        gfx: GuiGraphicsExtractor,
+        texture: Identifier,
+        x: Int,
+        y: Int,
+        size: Int,
+        color: Int,
+        rotationDegrees: Float = 0f,
+    ) {
+        val setup = Minecraft.getInstance().getTextureManager().getTexture(texture).textureSetup
+        if (rotationDegrees == 0f) {
+            gfx.drawTexQuad(
+                setup,
+                x0 = x.toFloat(), y0 = y.toFloat(), x1 = (x + size).toFloat(), y1 = (y + size).toFloat(),
+                argb = color,
+            )
+            return
+        }
+        val cx = x + size / 2f
+        val cy = y + size / 2f
+        val pose = gfx.pose()
+        pose.pushMatrix()
+        pose.translate(cx, cy)
+        pose.rotate(Math.toRadians(rotationDegrees.toDouble()).toFloat())
+        pose.translate(-cx, -cy)
         gfx.drawTexQuad(
             setup,
             x0 = x.toFloat(), y0 = y.toFloat(), x1 = (x + size).toFloat(), y1 = (y + size).toFloat(),
             argb = color,
         )
+        pose.popMatrix()
     }
 
     /** Clamp helpers used across the widgets for drag/slider math. */
@@ -128,9 +156,9 @@ object GuiRender2D {
      */
     fun frostOverlay(gfx: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, alpha: Int = 22, tileSize: Int = 48) {
         if (w <= 0 || h <= 0 || alpha <= 0) return
-        val texture = Minecraft.getInstance().textureManager.getTexture(ClickGuiIcons.GLASS_NOISE)
-        val repeatSampler = RenderSystem.getSamplerCache()
-            .getRepeat(FilterMode.LINEAR)
+        val texture = Minecraft.getInstance().getTextureManager().getTexture(ClickGuiIcons.GLASS_NOISE)
+        val repeatSampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache()
+            .getRepeat(com.mojang.blaze3d.textures.FilterMode.LINEAR)
         val setup = texture.textureView.asTextureSetup(repeatSampler)
         val u2 = w.toFloat() / tileSize
         val v2 = h.toFloat() / tileSize
