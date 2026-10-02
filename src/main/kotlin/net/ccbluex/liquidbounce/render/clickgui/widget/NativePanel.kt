@@ -150,12 +150,14 @@ class NativePanel(
         // FIX (crash: "Scissor size must be >0, was 0x0"): only push a
         // scissor for the part of the body that is actually visible on
         // screen. Pushing the raw (x, bodyY, x+WIDTH, bodyY+bh) rectangle
-        // while the panel sits partially or fully outside the screen made
-        // the scissor intersection collapse to an empty 0x0 rect, which
+        // while the panel sits partially or fully outside the screen (or
+        // when bh == 0, e.g. an empty category) made the scissor
+        // intersection collapse to an empty 0x0 rect, which
         // FrontendRenderPass rejects with an IllegalArgumentException that
-        // kills the whole render frame. An empty intersection simply means
-        // nothing of the body is visible, so skipping the push (and the row
-        // rendering inside it) is exactly the correct behaviour.
+        // kills the whole render frame -> opening the ClickGUI crashes the
+        // game. An empty intersection simply means nothing of the body is
+        // visible, so skipping the push (and the row rendering inside it)
+        // is exactly the correct behaviour.
         val clipX0 = maxOf(x, 0)
         val clipY0 = maxOf(bodyY, 0)
         val clipX1 = minOf(x + WIDTH, screenW)
