@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,9 +20,23 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '25'
+          # 注意：这里不要加 cache: 'gradle'，
+          # 否则会和下面的 setup-gradle 重复缓存，反而互相覆盖。
+          # setup-gradle 已经负责 Gradle 依赖缓存。
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          # 只在主分支 / nextgen 上写缓存；
+          # PR 和临时分支只读缓存，避免把不稳定的依赖写进公共缓存。
+          cache-read-only: ${{ github.ref != 'refs/heads/main'
+                            && github.ref != 'refs/heads/master'
+                            && github.ref != 'refs/heads/nextgen' }}
+          # 每次执行后清理 ~/.gradle 中 7 天未使用的缓存条目，
+          # 防止缓存体积无限增长（GitHub 单仓库缓存上限 10 GB）。
+          gradle-home-cache-cleanup: true
+          # 不做"每次覆盖已有缓存"，让命中率更高的缓存留下来。
+          cache-overwrite-existing: false
 
       - name: Build
         run: ./gradlew build -x test -x detekt
@@ -31,4 +46,4 @@ jobs:
         with:
           name: liquidbounce-android
           path: build/libs/*.jar
-          retention-days: 30
+          retention-days: 9000
