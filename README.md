@@ -37,11 +37,11 @@
 
 | 贡献者 | 贡献占比 | 角色 |
 |--------|---------|------|
-| **Cleverpeople** | 50% | 核心开发 · Rubbishy-LB 原作者 |
+| **Cleverpeople** | 50% | Rubbishy-LB 原作者 提供部分视觉模块|
 | **Seagdo** (Bilibili) | 40% | Android 适配 · 功能移植 · 项目维护 |
 | **Geda6** | 10% | 功能测试 · Bug 修复 |
 
-> 开发工具：DeepSeek、DeepSeek V4 Flash、GLM-5、Gemini 等 AI 辅助编程
+> 开发工具：DeepSeekV4Pro,GLM-5.2等 AI 辅助编程
 
 ---
 
@@ -50,8 +50,8 @@
 ### 第一步：准备工作
 
 1. 在手机上安装以下启动器之一：
-   - [PojavLauncher](https://pojavlauncherteam.github.io/) （推荐）
-   - [ZalithLauncher](https://github.com/ZalithMC/ZalithLauncher)
+   - [PojavLauncher](https://pojavlauncherteam.github.io/) 
+   - [ZalithLauncher](https://github.com/ZalithMC/ZalithLauncher)(推荐)
    - FoldCraft Launcher
 
 2. 确保启动器中已安装：
@@ -63,13 +63,13 @@
 ### 第二步：下载客户端
 
 1. 前本项目的 [Releases](../../releases) 页面
-2. 下载最新的 `.jar` 文件（如 `liquidbounce-0.40.1.jar`）
+2. 下载最新的 `.jar` 文件（如 `PojavbounceNew-0.40.1.jar`）
 
 ### 第三步：安装到手机
 
 1. 将下载的 `.jar` 文件放入手机的 Minecraft mods 目录：
    ```
-   内部存储/PojavLauncher/.minecraft/mods/
+   内部存储/FCL/.minecraft/mods/
    ```
    或（ZalithLauncher）：
    ```
@@ -82,7 +82,8 @@
 
 1. 打开 PojavLauncher / ZalithLauncher
 2. 选择对应的 Minecraft 版本（26.3）
-3. 启动游戏
+3. 使用MobileGlues最新的支持26.3的测试版本以启动26.3JavaMC
+4. 启动游戏
 
 ---
 
@@ -115,8 +116,8 @@
 | `.help` | 查看所有命令 | `.help` |
 | `.bind <模块> <按键>` | 绑定快捷键 | `.bind KillAura R` |
 | `.toggle <模块>` | 切换模块开关 | `.toggle KillAura` |
-| `.module list` | 列出所有模块 | `.module list` |
-| `.config load <名称>` | 加载配置 | `.config load default` |
+| `.localconfig load <配置名>` | 加载本地配置 | `.localconfig load hypixel(导入了的话)` |
+| `.config load <名称>` | 加载水影官方配置 | `.config load default` |
 
 ### 内置模块一览
 
@@ -244,7 +245,7 @@ PojavBounceNew 使用 [Mixin](https://docs.spongepowered.org/5.1.0/en/plugin/int
 | [PojavLauncher](https://github.com/PojavLauncherTeam/PojavLauncher) | Android Java 版 MC 启动器 |
 | [FabricMC](https://fabricmc.net/) | 模块加载框架 |
 
-**特别感谢**：CCBlueX、Cleverpeople 以及所有 LiquidBounce 社区成员
+**特别感谢**：CCBlueX、Cleverpeople、Geda6以及所有 LiquidBounce 社区成员
 
 </div>
 
@@ -260,7 +261,7 @@ PojavBounceNew 使用 [Mixin](https://docs.spongepowered.org/5.1.0/en/plugin/int
 
 | 平台 | 链接 |
 |------|------|
-| 📺 Bilibili | [https://b23.tv/tTuEWKE](https://b23.tv/tTuEWKE) |
+| 📺 Bilibili 频道| [https://b23.tv/tTuEWKE](https://b23.tv/tTuEWKE) |
 | 🐛 Bug 反馈 | [Issues](../../issues) |
 | 💬 讨论 | [Discussions](../../discussions) |
 
