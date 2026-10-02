@@ -18,10 +18,10 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 class NativeSearchBar(private val allModules: () -> Collection<ClientModule>) {
 
     companion object {
-        const val WIDTH = 600
-        const val TOP = 70
-        const val HEIGHT = 30
-        const val ROW_HEIGHT = 22
+        const val WIDTH = 400
+        const val TOP = 20
+        const val HEIGHT = 24
+        const val ROW_HEIGHT = 20
         const val MAX_RESULTS = 8
     }
 
