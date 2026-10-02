@@ -1,16 +1,12 @@
 /*
  * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
  *
- * Native port of Module.svelte. Interaction model copied exactly from the
- * source component:
+ * Native port of Module.svelte. Interaction model:
  *   - left click on the name row  -> toggle the module on/off
  *   - right click on the name row -> toggle the settings panel open/closed
- *     (Module.svelte: `on:contextmenu|preventDefault={toggleExpanded}`)
- *   - the small chevron button on the right is a second way to do the same
- *     right-click action, and stops the click from also toggling the module
- *     (Module.svelte's toggleExpanded() calls `e.stopPropagation()`)
- *   - when expanded, settings render below with a left accent border and a
- *     darker background (module-settings-background / -border-color)
+ *
+ * FIX: ROW_HEIGHT lowered from 30 to 22
+ * FIX: text scale applied via pose matrix using ModuleClickGui.fontSize
  */
 package net.ccbluex.liquidbounce.render.clickgui.widget
 
@@ -27,8 +23,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 class NativeModuleRow(val module: ClientModule) {
 
     companion object {
-        const val ROW_HEIGHT = 30
-        private const val ARROW_ZONE = 40
+        const val ROW_HEIGHT = 22
+        private const val ARROW_ZONE = 36
     }
 
     var expanded: Boolean = false
@@ -37,8 +33,6 @@ class NativeModuleRow(val module: ClientModule) {
     private var settingRows: List<SettingRow>? = null
     private var hovered = false
 
-    /** Module names the config system flags as internal and never shows -
-     * mirrors GenericSetting's own `name !== "Bind" && name !== "Hidden"` filter. */
     private fun visibleValues() = module.get().filter { it.name != "Bind" && it.name != "Hidden" }
 
     val hasSettings: Boolean get() = visibleValues().isNotEmpty()
@@ -56,7 +50,7 @@ class NativeModuleRow(val module: ClientModule) {
         if (!expanded) return ROW_HEIGHT
         val settingsWidth = width
         val inner = rowsFor(settingsWidth).sumOf { it.height(settingsWidth) + 2 }
-        return ROW_HEIGHT + inner + 8
+        return ROW_HEIGHT + inner + 6
     }
 
     fun render(gfx: GuiGraphicsExtractor, x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int) {
@@ -67,9 +61,19 @@ class NativeModuleRow(val module: ClientModule) {
 
         val font = Minecraft.getInstance().font
         val textColor = if (module.enabled) ClickGuiPalette.MODULE_ENABLED else ClickGuiPalette.TEXT
-        val maxNameWidth = width - 20 - (if (hasSettings) ARROW_ZONE else 12)
+        val maxNameWidth = width - 16 - (if (hasSettings) ARROW_ZONE else 8)
         val name = GuiRender2D.ellipsize(gfx, module.name, maxNameWidth)
-        gfx.text(font, name, x + 12, y + (ROW_HEIGHT - font.lineHeight) / 2, textColor, false)
+
+        // 应用字体缩放
+        val fs = ModuleClickGui.fontSize
+        if (fs != 1.0f) {
+            gfx.pose().pushMatrix()
+            gfx.pose().scale(fs, fs)
+            gfx.text(font, name, ((x + 8) / fs).toInt(), ((y + (ROW_HEIGHT - font.lineHeight) / 2) / fs).toInt(), textColor, false)
+            gfx.pose().popMatrix()
+        } else {
+            gfx.text(font, name, x + 8, y + (ROW_HEIGHT - font.lineHeight) / 2, textColor, false)
+        }
 
         if (hasSettings) {
             val arrowCx = x + width - ARROW_ZONE / 2
@@ -80,11 +84,11 @@ class NativeModuleRow(val module: ClientModule) {
         if (expanded) {
             val bodyY = y + ROW_HEIGHT
             val rows = rowsFor(width)
-            val bodyH = rows.sumOf { it.height(width) + 2 } + 8
+            val bodyH = rows.sumOf { it.height(width) + 2 } + 6
             gfx.fill(x, bodyY, x + width, bodyY + bodyH, if (ModuleClickGui.glassMode) ClickGuiPalette.withAlpha(ClickGuiPalette.MODULE_SETTINGS_BG, 56) else ClickGuiPalette.MODULE_SETTINGS_BG)
-            gfx.fill(x, bodyY, x + 4, bodyY + bodyH, ClickGuiPalette.MODULE_SETTINGS_BORDER)
+            gfx.fill(x, bodyY, x + 3, bodyY + bodyH, ClickGuiPalette.MODULE_SETTINGS_BORDER)
 
-            var rowY = bodyY + 6
+            var rowY = bodyY + 4
             for (row in rows) {
                 row.render(gfx, x, rowY, width, mouseX, mouseY)
                 rowY += row.height(width) + 2
@@ -92,8 +96,6 @@ class NativeModuleRow(val module: ClientModule) {
         }
     }
 
-    /** Returns true if this row consumed the click. [width] must match what
-     * was passed to render() so hit-testing lines up with what's drawn. */
     fun mouseClicked(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
         if (mouseX !in x..(x + width)) return false
 
@@ -103,11 +105,11 @@ class NativeModuleRow(val module: ClientModule) {
                 toggleExpanded()
                 return true
             }
-            if (button == 1) { // right click anywhere else on the row
+            if (button == 1) {
                 if (hasSettings) toggleExpanded()
                 return true
             }
-            if (button == 0) { // left click -> toggle module
+            if (button == 0) {
                 module.enabled = !module.enabled
                 return true
             }
@@ -115,7 +117,7 @@ class NativeModuleRow(val module: ClientModule) {
         }
 
         if (expanded && mouseY > y + ROW_HEIGHT) {
-            var rowY = y + ROW_HEIGHT + 6
+            var rowY = y + ROW_HEIGHT + 4
             for (row in rowsFor(width)) {
                 if (mouseY in rowY..(rowY + row.height(width))) {
                     return row.mouseClicked(x, rowY, width, mouseX, mouseY, button)
@@ -128,7 +130,7 @@ class NativeModuleRow(val module: ClientModule) {
 
     fun mouseDragged(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
         if (!expanded) return false
-        var rowY = y + ROW_HEIGHT + 6
+        var rowY = y + ROW_HEIGHT + 4
         for (row in rowsFor(width)) {
             if (row.mouseDragged(x, rowY, width, mouseX, mouseY, button)) return true
             rowY += row.height(width) + 2
