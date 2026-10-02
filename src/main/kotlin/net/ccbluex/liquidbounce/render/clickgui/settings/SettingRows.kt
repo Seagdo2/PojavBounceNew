@@ -54,7 +54,7 @@ interface SettingRow {
     fun isFocused(): Boolean = false
 }
 
-private const val LABEL_FRACTION = 0.42f
+private const val LABEL_FRACTION = 0.55f
 private const val ROW_PAD = 10
 
 private fun labelAndControlBounds(x: Int, width: Int, indent: Int): Pair<IntRange, IntRange> {
