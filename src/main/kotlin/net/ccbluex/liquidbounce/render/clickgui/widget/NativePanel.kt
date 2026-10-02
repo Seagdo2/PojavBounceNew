@@ -73,13 +73,28 @@ class NativePanel(
     private var resizeStartMouseY = 0
     private var resizeStartHeight = 0
 
+    /**
+     * FIX (crash: "Scissor size must be >0, was 0x0"):
+     * The logical (pre-scale) size of the visible screen, remembered from the
+     * last render pass. Used to (a) clamp the scissor rectangle of the body
+     * to the actually visible area before pushing it - pushing a rectangle
+     * that lies fully or partially outside the screen made vanilla's scissor
+     * intersection collapse to 0x0, which crashes FrontendRenderPass - and
+     * (b) keep the panel header reachable while dragging, so a panel can
+     * never be lost completely off-screen.
+     */
+    var screenW: Int = Int.MAX_VALUE
+    var screenH: Int = Int.MAX_VALUE
+
     private fun contentHeight(): Int = rows.sumOf { it.totalHeight(WIDTH - 8) }
 
     private fun bodyHeight(): Int = contentHeight().coerceAtMost(maxBodyHeight).coerceAtLeast(0)
 
     fun totalHeight(): Int = HEADER_HEIGHT + if (collapsed) 0 else bodyHeight()
 
-    fun render(gfx: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+    fun render(gfx: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, screenWidth: Int = Int.MAX_VALUE, screenHeight: Int = Int.MAX_VALUE) {
+        screenW = screenWidth.coerceAtLeast(1)
+        screenH = screenHeight.coerceAtLeast(1)
         // ease the visible scroll toward wherever the wheel last left it -
         // this is what makes scrolling feel smooth instead of snapping
         scrollAnimated += (scrollTarget - scrollAnimated) * SCROLL_EASE
@@ -132,16 +147,31 @@ class NativePanel(
         gfx.fill(x, bodyY, x + WIDTH, bodyY + bh, bodyBg)
         if (glass) GuiRender2D.frostOverlay(gfx, x, bodyY, WIDTH, bh)
 
-        gfx.enableScissor(x, bodyY, x + WIDTH, bodyY + bh)
-        var rowY = bodyY - scroll
-        for (row in rows) {
-            val rh = row.totalHeight(WIDTH - 8)
-            if (rowY + rh >= bodyY && rowY <= bodyY + bh) {
-                row.render(gfx, x + 4, rowY, WIDTH - 8, mouseX, mouseY)
+        // FIX (crash: "Scissor size must be >0, was 0x0"): only push a
+        // scissor for the part of the body that is actually visible on
+        // screen. Pushing the raw (x, bodyY, x+WIDTH, bodyY+bh) rectangle
+        // while the panel sits partially or fully outside the screen made
+        // the scissor intersection collapse to an empty 0x0 rect, which
+        // FrontendRenderPass rejects with an IllegalArgumentException that
+        // kills the whole render frame. An empty intersection simply means
+        // nothing of the body is visible, so skipping the push (and the row
+        // rendering inside it) is exactly the correct behaviour.
+        val clipX0 = maxOf(x, 0)
+        val clipY0 = maxOf(bodyY, 0)
+        val clipX1 = minOf(x + WIDTH, screenW)
+        val clipY1 = minOf(bodyY + bh, screenH)
+        if (clipX1 > clipX0 && clipY1 > clipY0) {
+            gfx.enableScissor(clipX0, clipY0, clipX1, clipY1)
+            var rowY = bodyY - scroll
+            for (row in rows) {
+                val rh = row.totalHeight(WIDTH - 8)
+                if (rowY + rh >= bodyY && rowY <= bodyY + bh) {
+                    row.render(gfx, x + 4, rowY, WIDTH - 8, mouseX, mouseY)
+                }
+                rowY += rh
             }
-            rowY += rh
+            gfx.disableScissor()
         }
-        gfx.disableScissor()
 
         clampScroll()
 
@@ -169,6 +199,20 @@ class NativePanel(
         val maxScroll = (contentHeight() - bodyHeight()).coerceAtLeast(0).toFloat()
         scrollTarget = scrollTarget.coerceIn(0f, maxScroll)
         scrollAnimated = scrollAnimated.coerceIn(0f, maxScroll)
+    }
+
+    /**
+     * FIX: keeps at least the panel header inside the visible screen while
+     * dragging, so a panel can never end up completely off-screen (where it
+     * would be unreachable, and its body scissor would be empty).
+     */
+    private fun clampToScreen() {
+        if (screenW != Int.MAX_VALUE) {
+            x = x.coerceIn(40 - WIDTH, screenW - 40)
+        }
+        if (screenH != Int.MAX_VALUE) {
+            y = y.coerceIn(0, (screenH - HEADER_HEIGHT).coerceAtLeast(0))
+        }
     }
 
     /**
@@ -245,6 +289,7 @@ class NativePanel(
         if (dragging) {
             x = mouseX - dragOffsetX
             y = mouseY - dragOffsetY
+            clampToScreen()
             return true
         }
         if (!collapsed) {
@@ -265,6 +310,7 @@ class NativePanel(
             val grid = ModuleClickGui.Snapping.gridSize
             x = ((x + grid / 2) / grid) * grid
             y = ((y + grid / 2) / grid) * grid
+            clampToScreen()
         }
         dragging = false
         resizingHeight = false
