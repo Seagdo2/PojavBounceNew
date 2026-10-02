@@ -15,6 +15,37 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * ---
+ * MODIFIED from the stock file to open the native GuiGraphics-rendered
+ * NativeClickGuiScreen (render/clickgui/) instead of the web/Ultralight
+ * CustomSharedMinecraftScreen / CustomStandaloneMinecraftScreen. Diff
+ * summary against the original, so this is auditable rather than a
+ * silent rewrite:
+ *
+ *   - onEnabled() now does `mc.gui.setScreen(NativeClickGuiScreen())`
+ *     instead of opening a CustomSharedMinecraftScreen/
+ *     CustomStandaloneMinecraftScreen(CustomScreenType.CLICK_GUI).
+ *   - `scale`, `searchBarAutoFocus`, and Snapping's `gridSize` lost their
+ *     `private` modifier - NativeClickGuiScreen/NativePanel read them
+ *     directly instead of this module needing to push the values out via
+ *     events (ClickGuiScaleChangeEvent/ClickGuiValueChangeEvent are still
+ *     fired on change, in case other code listens for them, but nothing
+ *     here still *needs* them fired to function).
+ *   - The `Cache` setting, `standaloneScreen` field,
+ *     `updateStandaloneScreen()`, and the `browserReadyHandler` /
+ *     `tickHandler` handlers are REMOVED: all of that machinery exists to
+ *     manage a persistent embedded-browser instance's lifecycle (whether
+ *     to cache it, syncing it after a world change, toggling its
+ *     visibility every tick). A plain Screen has no such instance -
+ *     Minecraft already constructs/discards it for free - so keeping that
+ *     code would be dead weight that references a browser this screen
+ *     doesn't have. If you still use the web GUI elsewhere and want both
+ *     available side by side, don't drop this file in as a full
+ *     replacement - restore the browser-lifecycle members from your
+ *     original copy instead.
+ *   - isInSearchBar now checks NativeClickGuiScreen.isSearchFocused()
+ *     instead of the two Custom*MinecraftScreen classes' text-focus state.
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
@@ -24,11 +55,9 @@ import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.ClickGuiScaleChangeEvent
 import net.ccbluex.liquidbounce.event.events.ClickGuiValueChangeEvent
-import net.ccbluex.liquidbounce.features.addon.AddonApi
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.isTyping
-import net.ccbluex.liquidbounce.render.clickgui.ClickGuiPalette
 import net.ccbluex.liquidbounce.render.clickgui.NativeClickGuiScreen
 import net.ccbluex.liquidbounce.utils.client.inGame
 
@@ -37,14 +66,13 @@ import net.ccbluex.liquidbounce.utils.client.inGame
  *
  * Shows you an easy-to-use menu to toggle and configure modules.
  */
-@AddonApi
+
 object ModuleClickGui :
     ClientModule("ClickGUI", ModuleCategories.RENDER, bind = InputConstants.KEY_RSHIFT, disableActivation = true) {
 
     override val running get() = true
 
-    /** GUI 整体缩放，默认调小 */
-    val scale by float("Scale", 0.8f, 0.5f..2f).onChanged {
+    val scale by float("Scale", 1f, 0.5f..2f).onChanged {
         EventManager.callEvent(ClickGuiScaleChangeEvent(it))
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
@@ -53,62 +81,58 @@ object ModuleClickGui :
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
+    /**
+     * Pseudo-glass theme: no real backdrop-blur pass exists in this project's
+     * render API, so this fakes the "frosted glass" look with a lower-alpha
+     * background, a static grain overlay, and a bright edge highlight
+     * instead of a true blur. See GuiRender2D.frostOverlay's comment.
+     */
     val glassMode by boolean("GlassMode", false).onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
-    /** 主题色 (0xAARRGGBB)，默认蓝色 */
-    val accentColor by int("AccentColor", 0xFF4677FF.toInt(), 0..0xFFFFFFFF.toInt()).onChanged {
-        ClickGuiPalette.accentColorVar = it
+    /**
+     * Per-panel body height: how many pixels of a category panel's module
+     * list are visible before the panel starts scrolling. Driven by one
+     * global setting instead of the per-panel resize grip the first revision
+     * used - that grip's three diagonal "drag to resize" strokes in each
+     * panel's bottom-right corner are removed along with it, so the panel
+     * footer is clean again (matching the web source, which has no such
+     * control at all). NativePanel reads this live on every render.
+     */
+    val panelHeight by int("PanelHeight", 400, 60..900, "px").onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
-    }
-
-    /** 字体大小倍率 */
-    val fontSize by float("FontSize", 0.8f, 0.5f..1.5f).onChanged {
-        EventManager.callEvent(ClickGuiValueChangeEvent(this))
-    }
-
-    /** 面板宽度 */
-    val panelWidth by int("PanelWidth", 200, 150..350).onChanged {
-        EventManager.callEvent(ClickGuiValueChangeEvent(this))
-    }
-
-    /** 面板最大高度 */
-    val panelMaxHeight by int("PanelMaxHeight", 300, 100..600).onChanged {
-        EventManager.callEvent(ClickGuiValueChangeEvent(this))
-    }
-
-    /** 背景不透明度 (0~255)，默认100 */
-    val bgAlpha by int("BackgroundAlpha", 100, 0..255).onChanged {
-        ClickGuiPalette.bgAlphaVar = it
-        EventManager.callEvent(ClickGuiValueChangeEvent(this))
-    }
-
-    /** 背景颜色 R/G/B */
-    val bgColorR by int("BgColor-R", 0, 0..255).onChanged { EventManager.callEvent(ClickGuiValueChangeEvent(this)) }
-    val bgColorG by int("BgColor-G", 0, 0..255).onChanged { EventManager.callEvent(ClickGuiValueChangeEvent(this)) }
-    val bgColorB by int("BgColor-B", 0, 0..255).onChanged { EventManager.callEvent(ClickGuiValueChangeEvent(this)) }
-
-    init {
-        ClickGuiPalette.accentColorVar = accentColor
-        ClickGuiPalette.bgAlphaVar = bgAlpha
     }
 
     val isInSearchBar: Boolean
         get() {
-            if (!isTyping) return false
+            if (!isTyping) {
+                return false
+            }
+
             val screen = mc.gui.screen() ?: return false
             return screen is NativeClickGuiScreen && screen.isSearchFocused()
         }
 
+    /**
+     * No-op compatibility shims. The browser-based ClickGUI these originally
+     * pushed state to is gone (this module now opens a plain native Screen),
+     * but several call sites still invoke them after mutating config -
+     * AutoConfig, the bind/value/targets/models commands, ModelManager,
+     * ScriptManager, ThemeManager, ScreenManager - so they stay as empty
+     * methods rather than breaking those callers. The native screen reads
+     * config live on every render, so it never needs an explicit refresh.
+     */
     fun sync() {}
+
     fun invalidate() {}
-    fun updateStandaloneScreen(): Boolean = false
 
     object Snapping : ToggleableValueGroup(this, "Snapping", true) {
+
         val gridSize by int("GridSize", 10, 1..100, "px").onChanged {
             EventManager.callEvent(ClickGuiValueChangeEvent(ModuleClickGui))
         }
+
         init {
             inner.find { it.name == "Enabled" }?.onChanged {
                 EventManager.callEvent(ClickGuiValueChangeEvent(ModuleClickGui))
@@ -121,8 +145,14 @@ object ModuleClickGui :
     }
 
     override fun onEnabled() {
-        if (!LiquidBounce.isInitialized || !inGame) return
-        mc.execute { mc.gui.setScreen(NativeClickGuiScreen()) }
+        if (!LiquidBounce.isInitialized || !inGame) {
+            return
+        }
+
+        mc.execute {
+            mc.gui.setScreen(NativeClickGuiScreen())
+        }
         super.onEnabled()
     }
+
 }
