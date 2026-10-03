@@ -139,25 +139,21 @@ class NativeModuleRow(val module: ClientModule) {
         // body smoothly shrinks/grows instead of snapping.
         val fullBodyH = settingsBodyHeight(width)
         val animBodyH = (fullBodyH.toFloat() * expandAnim).toInt()
-        if (animBodyH > 0) {
+        if (animBodyH > 0 && width > 0) {
             val bodyY = y + ROW_HEIGHT
             gfx.fill(x, bodyY, x + width, bodyY + animBodyH, if (ModuleClickGui.glassMode) ClickGuiPalette.withAlpha(ClickGuiPalette.MODULE_SETTINGS_BG, 56) else ClickGuiPalette.MODULE_SETTINGS_BG)
             gfx.fill(x, bodyY, x + 4, bodyY + animBodyH, ClickGuiPalette.MODULE_SETTINGS_BORDER)
 
-            // Clip setting rows to the animated body height so they shrink
-            // away with the background instead of staying fully visible until
-            // expandAnim hits 0 and the whole block is skipped.
-            gfx.enableScissor(x, bodyY, x + width, bodyY + animBodyH)
+            // 防闪退：不使用嵌套 enableScissor（与父级 scissor 交集可能为 0x0 导致崩溃）
+            // 改为手动跳过不可见的行
             val rows = rowsFor(width)
             var rowY = bodyY + 6
             for (row in rows) {
-                // Skip rows that start entirely below the scissor (cheap cull)
                 if (rowY < bodyY + animBodyH) {
                     row.render(gfx, x, rowY, width, mouseX, mouseY)
                 }
                 rowY += row.height(width) + 2
             }
-            gfx.disableScissor()
         }
     }
 
