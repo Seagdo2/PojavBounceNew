@@ -942,7 +942,6 @@ public final class net/ccbluex/liquidbounce/features/module/modules/player/autos
 
 public final class net/ccbluex/liquidbounce/features/module/modules/render/ModuleClickGui : net/ccbluex/liquidbounce/features/module/ClientModule {
 	public static final field INSTANCE Lnet/ccbluex/liquidbounce/features/module/modules/render/ModuleClickGui;
-	public fun enabledEffect (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun getActiveTextColor ()I
 	public final fun getActiveTextColorB ()I
 	public final fun getActiveTextColorG ()I
@@ -962,6 +961,7 @@ public final class net/ccbluex/liquidbounce/features/module/modules/render/Modul
 	public final fun getTextColorR ()I
 	public final fun invalidate ()V
 	public final fun isInSearchBar ()Z
+	public fun onEnabled ()V
 	public final fun sync ()V
 	public final fun updateStandaloneScreen ()Z
 }
