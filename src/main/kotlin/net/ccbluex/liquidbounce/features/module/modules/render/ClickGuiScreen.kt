@@ -15,7 +15,7 @@ import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.CharacterEvent
 import net.minecraft.network.chat.Component
-import org.lwjgl.glfw.GLFW
+import com.mojang.blaze3d.platform.InputConstants
 import java.awt.Color
 import java.util.IdentityHashMap
 import kotlin.math.abs
@@ -277,7 +277,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
     private fun getAllModulesCached(): List<ClientModule> {
         val now = System.currentTimeMillis()
         if (cachedAllModules.isEmpty() || now - cachedAllModulesTime > 1000L) {
-            cachedAllModules = ModuleManager.getModules().toList()
+            cachedAllModules = ModuleManager.toList()
             cachedAllModulesTime = now
         }
         return cachedAllModules
@@ -425,7 +425,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             panels = targetPanels
             if (isFirstLoad) {
                 savedLayout.expandedModule?.let { name ->
-                    val mod = ModuleManager.getModuleByName(name)
+                    val mod = ModuleManager.find { it.name == name }
                     expandedModule = mod
                 }
                 for (key in savedLayout.collapsedGroups) {
@@ -433,7 +433,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                     if (idx <= 0) {
                         continue
                     }
-                    val mod = ModuleManager.getModuleByName(key.substring(0, idx)) ?: continue
+                    val mod = ModuleManager.find { it.name == key.substring(0, idx) } ?: continue
                     val groupName = key.substring(idx + 1)
                     for ((v, _) in getVisibleValues(mod)) {
                         if (v.name == groupName && isGroupValue(v)) {
@@ -1344,7 +1344,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             listeningValue = null
             return true
         }
-        val isEscape = event.key() == GLFW.GLFW_KEY_ESCAPE || event.scancode() == 1
+        val isEscape = event.key == InputConstants.KEY_ESCAPE
         if (isEscape) {
             // 搜索框聚焦时, 第一次 ESC 只取消聚焦
             if (searchFocused) {
@@ -1357,25 +1357,21 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             return true
         }
         if (searchFocused) {
-            when (event.key()) {
-                GLFW.GLFW_KEY_BACKSPACE -> {
+            when (event.key) {
+                InputConstants.KEY_BACKSPACE -> {
                     if (searchText.isNotEmpty()) {
                         searchText = searchText.dropLast(1)
                     }
                     return true
                 }
-                GLFW.GLFW_KEY_SPACE -> {
+                InputConstants.KEY_SPACE -> {
                     if (searchText.length < 50) {
                         searchText += " "
                     }
                     return true
                 }
                 else -> {
-                    val name = GLFW.glfwGetKeyName(event.key(), 0)
-                    if (name != null && name.length == 1 && searchText.length < 50) {
-                        searchText += name
-                        return true
-                    }
+                    // 文字输入由 charTyped 处理，这里不处理
                 }
             }
         }
