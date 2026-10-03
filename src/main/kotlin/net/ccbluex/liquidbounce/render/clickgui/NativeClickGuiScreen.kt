@@ -90,6 +90,8 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
         val s = scale()
         val lmx = (mouseX / s).toInt()
         val lmy = (mouseY / s).toInt()
+        val logicalWidth = (width / s).toInt().takeIf { it > 0 } ?: 1280
+        val logicalHeight = (height / s).toInt().takeIf { it > 0 } ?: 720
 
         // pushMatrix/popMatrix is wrapped in try/finally (the project's own
         // `withPush` does the same) so an exception thrown inside a panel's
@@ -104,9 +106,9 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
             // deliberately no dimmed backdrop / super.extractRenderState() background fill -
             // the whole point of this screen is that the game stays visible
             for (panel in panels) {
-                panel.render(gfx, lmx, lmy)
+                panel.render(gfx, lmx, lmy, logicalWidth, logicalHeight)
             }
-            searchBar.render(gfx, (width / s).toInt(), lmx, lmy)
+            searchBar.render(gfx, logicalWidth, lmx, lmy)
         } finally {
             gfx.pose().popMatrix()
         }
