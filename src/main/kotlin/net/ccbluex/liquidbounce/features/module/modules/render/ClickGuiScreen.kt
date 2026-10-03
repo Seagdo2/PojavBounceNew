@@ -1731,7 +1731,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             val expandedName = expandedModule?.name ?: ""
             val groups = mutableListOf<String>()
             try {
-                for (mod in ModuleManager.getModules()) {
+                for (mod in ModuleManager.toList()) {
                     for ((v, _) in getVisibleValues(mod)) {
                         if (collapsedGroups.contains(v)) {
                             groups += "${mod.name}:${v.name}"
