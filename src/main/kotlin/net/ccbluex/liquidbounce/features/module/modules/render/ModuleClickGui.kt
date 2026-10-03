@@ -1,9 +1,21 @@
 /*
  * ModuleClickGui —— 打开 ClickGuiScreen 的模块
  *
- * FIX: 使用 InputConstants 替代 GLFW（26.3 不直接暴露 GLFW）
- * FIX: 加 @AddonApi 注解（ABI 检查需要）
- * FIX: 加 import mc（mc.gui.screen() 等）
+ * ===== 修复说明 =====
+ * BUG 1: enabledEffect() 永远不会被调用
+ *   原因: disableActivation=true 导致 onToggled() 返回 false，
+ *   enabled 值不会真正改变，onChanged 回调不触发，enabledEffect() 不执行。
+ *   修复: 改用 onEnabled()——它在 onToggled 内部被调用，
+ *   发生在 disableActivation 检查之前，所以一定会执行。
+ *
+ * BUG 2: keyHandler 检查 event.keyCode == 344（GLFW键码），永远不匹配
+ *   原因: MC 26.3 使用 SDL 而非 GLFW。
+ *   MixinKeyboardHandler 构造 KeyboardKeyEvent 时:
+ *     keyCode = keyEvent.keycode()  → SDL keycode（不是 GLFW 344）
+ *     scanCode = keyEvent.key()    → SDL scancode（= InputConstants.KEY_* 值）
+ *   InputConstants.KEY_RSHIFT = 229（SDL scancode）
+ *   InputConstants.KEY_ESCAPE = 41（SDL scancode）
+ *   修复: 用 event.scanCode 和 InputConstants 常量替代硬编码的 GLFW 键码。
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
@@ -66,36 +78,53 @@ object ModuleClickGui :
     override val running get() = true
 
     /**
-     * FIX: 使用 InputConstants 替代 GLFW。
-     * KeyboardKeyEvent.keyCode 是 GLFW v3 键码（256=ESC, 344=RIGHT_SHIFT）。
+     * FIX 1: 用 onEnabled() 替代 enabledEffect()。
+     *
+     * 调用链: ModuleManager 设 m.enabled → ClientModule.onToggled(true)
+     * → super.onToggled → Toggleable.onToggled → onEnabled()  ← 这里调用
+     * → 回到 ClientModule.onToggled → disableActivation 检查 → return false
+     *
+     * onEnabled() 在 disableActivation 检查之前执行，所以一定会被调用。
+     * 而 enabledEffect() 依赖 onChanged 回调，disableActivation 导致值不变
+     * → onChanged 不触发 → enabledEffect() 永远不执行。
+     */
+    override fun onEnabled() {
+        if (mc.gui.screen() !is ClickGuiScreen) {
+            openGui()
+        }
+    }
+
+    /**
+     * FIX 2: keyHandler 用 event.scanCode（SDL scancode）而非 event.keyCode（SDL keycode）。
+     *
+     * MC 26.3 MixinKeyboardHandler 构造 KeyboardKeyEvent:
+     *   keyCode  = keyEvent.keycode()  → SDL keycode（不是 GLFW 344）
+     *   scanCode = keyEvent.key()      → SDL scancode（= InputConstants.KEY_* 值）
+     *
+     * InputConstants.KEY_RSHIFT = 229（SDL scancode，不是 GLFW 344）
+     * InputConstants.KEY_ESCAPE = 41（SDL scancode，不是 GLFW 256）
      */
     @Suppress("unused")
     private val keyHandler = handler<KeyboardKeyEvent> { event ->
-        if (event.action != 1) return@handler
-        val code = event.keyCode
+        if (event.action != 1) return@handler // 只处理按下
+        val scancode = event.scanCode
 
-        // ESC = 256 (GLFW v3)
-        if (code == 256) {
+        // ESC: InputConstants.KEY_ESCAPE = 41 (SDL scancode)
+        if (scancode == InputConstants.KEY_ESCAPE) {
             val currentScreen = mc.gui.screen()
             if (currentScreen is ClickGuiScreen) {
                 mc.execute { closeGui() }
             }
             return@handler
         }
-        // RIGHT_SHIFT = 344 (GLFW v3)
-        if (code == 344) {
+        // RIGHT_SHIFT: InputConstants.KEY_RSHIFT = 229 (SDL scancode)
+        if (scancode == InputConstants.KEY_RSHIFT) {
             val currentScreen = mc.gui.screen()
             if (currentScreen == null) {
                 openGui()
             } else if (currentScreen is ClickGuiScreen) {
                 closeGui()
             }
-        }
-    }
-
-    override suspend fun enabledEffect() {
-        if (mc.gui.screen() !is ClickGuiScreen) {
-            openGui()
         }
     }
 
