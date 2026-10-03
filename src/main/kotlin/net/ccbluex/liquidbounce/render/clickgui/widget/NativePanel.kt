@@ -238,20 +238,26 @@ class NativePanel(
         return true
     }
 
+    /**
+     * FIX 交互逻辑:
+     * - 左键(header) → 拖动面板
+     * - 右键(header) → 展开/收缩分类
+     * - 左键(module row) → 开关模块
+     * - 右键(module row) → 展开/收缩模块设置
+     * - 左键(设置项) → 调整设置值
+     */
     fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
         if (mouseX !in x..(x + WIDTH)) return false
 
+        // 点击标题栏
         if (mouseY in y..(y + HEADER_HEIGHT)) {
             if (button == 1) {
-                collapsed = !collapsed
-                return true
-            }
-            val chevronZone = x + WIDTH - 26
-            if (mouseX >= chevronZone) {
+                // 右键 → 展开/收缩
                 collapsed = !collapsed
                 return true
             }
             if (button == 0) {
+                // 左键 → 拖动（不再触发展开）
                 dragging = true
                 dragOffsetX = mouseX - x
                 dragOffsetY = mouseY - y
@@ -260,6 +266,7 @@ class NativePanel(
             return false
         }
 
+        // 点击模块列表区域
         if (!collapsed && mouseY in (y + HEADER_HEIGHT)..(y + totalHeight())) {
             val scroll = scrollAnimated.toInt()
             var rowY = y + HEADER_HEIGHT - scroll

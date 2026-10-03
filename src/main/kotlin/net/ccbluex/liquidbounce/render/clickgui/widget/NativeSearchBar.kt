@@ -19,8 +19,8 @@ class NativeSearchBar(private val allModules: () -> Collection<ClientModule>) {
 
     companion object {
         const val WIDTH = 400
-        const val TOP = 20
-        const val HEIGHT = 24
+        const val TOP = 4
+        const val HEIGHT = 22
         const val ROW_HEIGHT = 20
         const val MAX_RESULTS = 8
     }

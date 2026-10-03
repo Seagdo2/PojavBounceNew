@@ -157,28 +157,31 @@ class NativeModuleRow(val module: ClientModule) {
         }
     }
 
-    /** Returns true if this row consumed the click. [width] must match what
-     * was passed to render() so hit-testing lines up with what's drawn. */
+    /**
+     * FIX 交互逻辑:
+     * - 左键(模块名) → 开关模块
+     * - 右键(模块名) → 展开/收缩模块设置
+     * - 左键(设置项) → 调整设置值
+     */
     fun mouseClicked(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
         if (mouseX !in x..(x + width)) return false
 
+        // 点击模块名行
         if (mouseY in y..(y + ROW_HEIGHT)) {
-            val arrowZoneStart = x + width - ARROW_ZONE
-            if (hasSettings && mouseX >= arrowZoneStart) {
-                toggleExpanded()
-                return true
-            }
-            if (button == 1) { // right click anywhere else on the row
+            if (button == 1) {
+                // 右键 → 展开/收缩设置
                 if (hasSettings) toggleExpanded()
                 return true
             }
-            if (button == 0) { // left click -> toggle module
+            if (button == 0) {
+                // 左键 → 开关模块
                 module.enabled = !module.enabled
                 return true
             }
             return false
         }
 
+        // 点击设置区域
         if (expanded && mouseY > y + ROW_HEIGHT) {
             var rowY = y + ROW_HEIGHT + 6
             for (row in rowsFor(width)) {
