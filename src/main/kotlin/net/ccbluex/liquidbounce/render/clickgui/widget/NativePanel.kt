@@ -111,7 +111,7 @@ class NativePanel(
         return (full.toFloat() * collapseAnim).toInt().coerceAtLeast(0)
     }
 
-    fun render(gfx: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+    fun render(gfx: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, screenWidth: Int = Int.MAX_VALUE, screenHeight: Int = Int.MAX_VALUE) {
         // ease the collapse animation toward its target (1 = expanded, 0 = collapsed)
         collapseAnimTarget = if (collapsed) 0f else 1f
         collapseAnim += (collapseAnimTarget - collapseAnim) * COLLAPSE_EASE
@@ -179,18 +179,28 @@ class NativePanel(
         // 否则离屏面板会产生 0x0 矩形导致 FrontendRenderPass 崩溃
         val mc = Minecraft.getInstance()
         val s = ModuleClickGui.scale
-        val screenW = (mc.window.guiScaledWidth / s).toInt().coerceAtLeast(1)
-        val screenH = (mc.window.guiScaledHeight / s).toInt().coerceAtLeast(1)
+        // FIX (crash: "Scissor size must be >0, was 0x0"): only push a
+        // scissor for the part of the body that is actually visible on
+        // screen. Pushing the raw (x, bodyY, x+WIDTH, bodyY+bh) rectangle
+        // while the panel sits partially or fully outside the screen made
+        // the scissor intersection collapse to an empty 0x0 rect, which
+        // FrontendRenderPass rejects with an IllegalArgumentException that
+        // kills the whole render frame. An empty intersection simply means
+        // nothing of the body is visible, so skipping the push (and the row
+        // rendering inside it) is exactly the correct behaviour.
+        // Early-return if bh==0 (no body to draw), matching web behaviour and avoiding unnecessary scissor setup
+        if (bh == 0) return
+        val screenW = screenWidth.coerceAtLeast(1)
+        val screenH = screenHeight.coerceAtLeast(1)
         val clipX0 = maxOf(x, 0)
         val clipY0 = maxOf(bodyY, 0)
         val clipX1 = minOf(x + WIDTH, screenW)
         val clipY1 = minOf(bodyY + bh, screenH)
-        if (bh > 0 && clipX1 > clipX0 && clipY1 > clipY0) {
-            gfx.enableScissor(clipX0, clipY0, clipX1, clipY1)
-            var rowY = bodyY - scroll
-            for (row in rows) {
-                val rh = row.totalHeight(WIDTH - 8)
-                if (rowY + rh >= bodyY && rowY <= bodyY + bh) {
+        val clipWidth = maxOf(0, clipX1 - clipX0)
+        val clipHeight = maxOf(0, clipY1 - clipY0)
+        if (clipWidth > 0 && clipHeight > 0) {
+            gfx.enableScissor(clipX0, clipY0, clipWidth, clipHeight)
+        }
                     row.render(gfx, x + 4, rowY, WIDTH - 8, mouseX, mouseY)
                 }
                 rowY += rh
@@ -198,6 +208,7 @@ class NativePanel(
             gfx.disableScissor()
         }
 
+            gfx.disableScissor()
         clampScroll()
 
         // glass mode's "light catching the edge" cue - a thin, bright,
@@ -299,7 +310,7 @@ class NativePanel(
             x = ((x + grid / 2) / grid) * grid
             y = ((y + grid / 2) / grid) * grid
         }
-        dragging = false
+        dragging = false  // FIX: reset dragging state on release
         rows.forEach { it.mouseReleased(mouseX, mouseY, button) }
         return was
     }
