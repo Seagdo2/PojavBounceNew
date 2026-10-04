@@ -8,6 +8,9 @@ import net.ccbluex.liquidbounce.features.module.ModuleCategory
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleManager
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.drawCircle
+import net.ccbluex.liquidbounce.render.drawHorizontalLine
+import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -32,32 +35,35 @@ import java.io.File
  */
 class ClickGuiScreen : Screen(Component.literal("ClickGUI")) {
 
-// ==================== Colors (暗黑主题, 匹配参考图: 近纯黑面板 + 白字 + 蓝色高亮) ====================
-private val ACCENT = 0xFF6688FFL.toInt()           // 亮蓝 (开启/激活)
-private val ACCENT_DARK = 0x666688FFL.toInt()
-private val BG = 0xF00E0E12L.toInt()               // 面板背景: 近纯黑微透明
-private val PANEL_BG = 0xEE0E0E12L.toInt()
-private val TEXT get() = ModuleClickGui.getTextColor()
-private val TEXT_BRIGHT = 0xFF6688FFL.toInt()       // 开启模块名亮蓝
-private val TEXT_DIM get() = 0xFFAAAAAAL.toInt()   // 关闭模块名浅灰
-private val CATEGORY_TITLE = 0xFFFFFFFFL.toInt()    // 分类标题纯白
-private val TAB_BG = 0x801A1A1EL.toInt()
-private val TAB_ACTIVE = 0xFF222228L.toInt()
+// ==================== Colors (NativeClickGui 半修复版风格, 对齐 ClickGuiPalette) ====================
+private val ACCENT = 0xFF4677FF.toInt()           // 亮蓝 (对齐 --accent-color: #4677ff)
+private val ACCENT_HOVER = 0xFF3962D1.toInt()     // color-mix(accent 82%, black)
+private val TEXT = 0xFFFFFFFF.toInt()             // 纯白文字
+private val TEXT_BRIGHT = 0xFF4677FF.toInt()     // 开启模块名 = ACCENT (对齐 MODULE_ENABLED)
+private val TEXT_DIM = 0xFFD3D3D3.toInt()         // 对齐 TEXT_DIMMED
+private val CATEGORY_TITLE = 0xFFFFFFFF.toInt()    // 分类标题纯白
+// base-N: 黑色低不透明度 (对齐 BASE_90/80/85/50)
+private val BG = 0x5A000000                       // 面板整体 = BASE_90
+private val PANEL_BG = 0x50000000                 // 主体 = BASE_80
+private val TAB_BG = 0x32000000                   // BASE_50
+private val TAB_ACTIVE = 0x50000000               // BASE_80
 private val BORDER = 0x15FFFFFFL.toInt()
-private val HOVER = 0x12FFFFFFL.toInt()
-private val SCROLL_TRACK = 0x206688FFL.toInt()
+private val HOVER = 0x55000000                    // 悬停 = BASE_85 (对齐 MODULE_HOVER_BG)
+private val SCROLL_TRACK = 0x28FFFFFFL.toInt()
 private val SCROLL_THUMB = 0x586688FFL.toInt()
 private val SCROLL_THUMB_HOVER = 0x786688FFL.toInt()
-private val EXPANDED_BG = 0x086688FFL.toInt()
-private val GROUP_BG = 0x0A6688FFL.toInt()
-private val GROUP_LINE = 0x106688FFL.toInt()
-private val SETTING_CHILD_BG = 0x04FFFFFFL.toInt()
-private val OVERLAY = 0x90000000L.toInt()            // 全局半透明黑背景
-private val SETTING_BG = 0x40080810L.toInt()
-// 【新增】开关样式颜色
-private val TOGGLE_ON = 0xFF6688FFL.toInt()          // 开启状态填充色
-private val TOGGLE_OFF_BORDER = 0x40FFFFFFL.toInt() // 关闭状态边框
-private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
+private val EXPANDED_BG = 0x32000000              // 设置区 = BASE_50 (对齐 MODULE_SETTINGS_BG)
+private val GROUP_BG = 0x0A4677FF                 // 对齐 ACCENT_SUBTLE_BG 12%
+private val GROUP_LINE = 0x1F4677FFL.toInt()
+private val SETTING_CHILD_BG = 0x1E000000         // BASE_30
+private val OVERLAY = 0x64000000                  // 对齐 OVERLAY_BACKDROP (降低不透明度)
+private val SETTING_BG = 0x32000000              // 设置背景 = BASE_50
+// 【NativeClickGui 开关样式】对齐 SWITCH_TRACK/THUMB 常量
+private val TOGGLE_ON = 0xFF1C3066.toInt()        // 开启轨道 = SWITCH_TRACK_ACTIVE (深蓝)
+private val TOGGLE_ON_THUMB = 0xFF4677FF.toInt()  // 开启滑块 = SWITCH_THUMB_ACTIVE (ACCENT)
+private val TOGGLE_OFF = 0xFF737373.toInt()       // 关闭轨道 = SWITCH_TRACK (灰)
+private val TOGGLE_OFF_BORDER = 0x40FFFFFFL.toInt()
+private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 SEARCH_BG)
 
     // ==================== Layout ====================
     private val CORNER = 6f
@@ -175,74 +181,42 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
         ctx.fill(x1.toInt(), y1.toInt(), x2.toInt(), y2.toInt(), color)
     }
 
+    /** 文本 — 直接 GPU 绘制, 无需 pose 缩放 hack */
     private fun drawText(ctx: GuiGraphicsExtractor, font: Font, text: String, x: Int, y: Int, color: Int) {
-        val pose = try {
-            ctx.pose()
-        } catch (_: Exception) {
-            null
-        }
-        if (pose != null) {
-            try {
-                pose.pushMatrix()
-                pose.translate(x.toFloat(), y.toFloat())
-                pose.scale(TEXT_SCALE, TEXT_SCALE)
-                ctx.text(font, text, 0, 0, color)
-                pose.popMatrix()
-                return
-            } catch (_: Exception) {
-                try {
-                    pose.popMatrix()
-                } catch (_: Exception) {
-                }
-            }
-        }
-        ctx.text(font, text, x, y, color)
+        ctx.text(font, text, x, y, color, false)
     }
 
+    /** 圆角矩形 — GPU SDF 圆角着色器 (对齐 GuiRender2D.fillRoundedRect), 逐像素抗锯齿 */
     private fun drawRoundedRect(ctx: GuiGraphicsExtractor, x: Float, y: Float, w: Float, h: Float, radius: Float, color: Int) {
+        if (w <= 0f || h <= 0f) return
         val r = radius.coerceAtMost(w / 2f).coerceAtMost(h / 2f)
         if (r <= 0.5f) {
             fillRect(ctx, x, y, x + w, y + h, color)
             return
         }
-        val x1 = x
-        val y1 = y
-        val x2 = x + w
-        val y2 = y + h
-        fillRect(ctx, x1 + r, y1, x2 - r, y2, color)
-        fillRect(ctx, x1, y1 + r, x1 + r, y2 - r, color)
-        fillRect(ctx, x2 - r, y1 + r, x2, y2 - r, color)
-        drawCorner(ctx, x1 + r, y1 + r, r, 180f, 270f, color)
-        drawCorner(ctx, x2 - r, y1 + r, r, 270f, 360f, color)
-        drawCorner(ctx, x2 - r, y2 - r, r, 0f, 90f, color)
-        drawCorner(ctx, x1 + r, y2 - r, r, 90f, 180f, color)
+        val cc = if ((color ushr 24) == 0) Color4b.TRANSPARENT else Color4b(color)
+        ctx.drawRoundedRect(
+            x1 = x, y1 = y, x2 = x + w, y2 = y + h,
+            radius = r,
+            fillColor = cc,
+        )
     }
 
-    private fun drawCorner(ctx: GuiGraphicsExtractor, cx: Float, cy: Float, r: Float, start: Float, end: Float, color: Int) {
-        var a = start
-        while (a < end) {
-            val rad1 = Math.toRadians(a.toDouble())
-            val rad2 = Math.toRadians((a + 6f).coerceAtMost(end).toDouble())
-            val px1 = cx + (cos(rad1) * r).toFloat()
-            val py1 = cy + (sin(rad1) * r).toFloat()
-            val px2 = cx + (cos(rad2) * r).toFloat()
-            val py2 = cy + (sin(rad2) * r).toFloat()
-            val minX = cx.coerceAtMost(px1).coerceAtMost(px2).toInt()
-            val maxX = cx.coerceAtLeast(px1).coerceAtLeast(px2).toInt()
-            val minY = cy.coerceAtMost(py1).coerceAtMost(py2).toInt()
-            val maxY = cy.coerceAtLeast(py1).coerceAtLeast(py2).toInt()
-            fillRect(ctx, minX, minY, max(minX + 1, maxX), max(minY + 1, maxY), color)
-            a += 6f
-        }
-    }
-
-    /** 真正圆形: 逐像素判定 x²+y²≤r², 按行填充 */
+    /** 圆形 — GPU 圆形着色器 (对齐 GuiRender2D.fillCircle) */
     private fun drawCircle(ctx: GuiGraphicsExtractor, cx: Float, cy: Float, r: Float, color: Int) {
-        val ri = r.toInt()
-        for (dy in -ri..ri) {
-            val halfW = sqrt(r * r - dy * dy).toInt()
-            val yy = (cy + dy).toInt()
-            fillRect(ctx, (cx - halfW).toInt(), yy, (cx + halfW).toInt(), yy + 1, color)
+        if (r <= 0f) return
+        ctx.drawCircle(cx, cy, r) { color }
+    }
+
+    /** 投影 — 多层递减透明度圆角矩形 (对齐 GuiRender2D.dropShadow) */
+    private fun drawShadow(ctx: GuiGraphicsExtractor, x: Float, y: Float, w: Float, h: Float, radius: Float, baseColor: Int, spread: Int = 6) {
+        val baseAlpha = (baseColor ushr 24) and 0xFF
+        if (baseAlpha == 0 || spread <= 0) return
+        for (i in spread downTo 1) {
+            val t = i / spread.toFloat()
+            val alpha = (baseAlpha * (1f - t) * 0.5f).toInt().coerceIn(0, 255)
+            if (alpha == 0) continue
+            drawRoundedRect(ctx, x - i, y - i, w + i * 2, h + i * 2, radius + i, (alpha shl 24) or (baseColor and 0x00FFFFFF))
         }
     }
 
@@ -457,6 +431,8 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             val collapsedH = HEADER_H + 2f
             val expandedH = ph
             val actualHeight = collapsedH + (expandedH - collapsedH) * expandT
+            // 【NativeClickGui】投影: 多层递减透明度圆角矩形 (对齐 GuiRender2D.dropShadow)
+            drawShadow(ctx, px, py, pw, actualHeight, CORNER, TAB_BG)
             drawRoundedRect(ctx, px, py, pw, actualHeight, CORNER, BG)
 
             var panelModules: List<ClientModule>
@@ -471,8 +447,8 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                 val arrow = if (panel.collapsed) "–" else "+"
                 val arrowX = (px + pw - 10f - font.width(arrow) * TEXT_SCALE).roundToInt()
                 drawText(ctx, font, "§l$arrow", arrowX, (py + 4f).toInt(), CATEGORY_TITLE)
-                // 【修改】底部蓝紫细条: 通宽面板, 1px 细线
-                fillRect(ctx, px, py + HEADER_H - 1f, px + pw, py + HEADER_H, ACCENT)
+                // 【NativeClickGui】标题栏底部 ACCENT 边线: 2px (对齐 NativePanel line + PANEL_HEADER_BORDER)
+                fillRect(ctx, px, py + HEADER_H - 2f, px + pw, py + HEADER_H, ACCENT)
             }
 
             if (panel.collapsed) {
@@ -762,21 +738,17 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             actual is Boolean -> {
                 val nameMaxW = (toggleX - labelX - 28).coerceAtLeast(10)   // 留出开关空间
                 drawText(ctx, font, trimText(font, v.name, nameMaxW), labelX, (y + 4f).toInt(), TEXT_DIM)
-                // 【修改】仿图药丸开关: ON=蓝色药丸+右白圆, OFF=只有白色圆
-                val tw = 22f
-                val th = 12f
+                // 【NativeClickGui 开关样式】对齐 SettingRows BooleanRow: 28x14 圆角轨道 + 10px 圆形滑块
+                val tw = 28f
+                val th = 14f
                 val tx = toggleX.toFloat()
-                val ty = y.toInt() + 2f
-                val tr = th / 2f   // 半径=高度/2 → 完全圆形药丸
-                if (actual) {
-                    // 开启状态: 蓝紫填充圆形药丸
-                    drawRoundedRect(ctx, tx, ty, tw, th, tr, TOGGLE_ON)
-                    // 右侧白色正圆钮 (真圆)
-                    drawCircle(ctx, tx + tw - 6f, ty + 6f, 4f, 0xFFFFFFFF.toInt())
-                } else {
-                    // 关闭状态: 无药丸底, 只有左侧白色正圆
-                    drawCircle(ctx, tx + 6f, ty + 6f, 4f, 0xFFFFFFFF.toInt())
-                }
+                val ty = y + (SETTING_H - th) / 2f
+                val track = if (actual) TOGGLE_ON else TOGGLE_OFF
+                drawRoundedRect(ctx, tx, ty, tw, th, th / 2f, track)   // 半径=高/2 → 完全胶囊形
+                val thumbD = th - 4f   // 滑块直径 = 高-4 = 10px
+                val thumbCx = if (actual) tx + tw - thumbD / 2f - 2f else tx + thumbD / 2f + 2f
+                val thumbColor = if (actual) TOGGLE_ON_THUMB else 0xFFFFFFFF.toInt()
+                drawCircle(ctx, thumbCx, ty + th / 2f, thumbD / 2f, thumbColor)   // GPU 正圆
             }
             isBindValue(v) -> {
                 drawText(ctx, font, trimText(font, v.name, labelMaxW), labelX, (y + 4f).toInt(), TEXT_DIM)
@@ -792,25 +764,33 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             isSliderValue(v) -> {
                 drawText(ctx, font, trimText(font, v.name, labelMaxW), labelX, (y + 3f).toInt(), TEXT_DIM)
                 val layout = computeSliderLayout(font, v, actual, x, w, indent)
-                val sliderY = y.toInt() + 8
+                val trackY = y + SETTING_H / 2f - 2f   // 轨道垂直居中
+                val sliderY = trackY.toInt()
                 val isRange = layout.rangeWidth > 0f || layout.upperPointX != 0
 
-                fillRect(ctx, layout.sliderX, sliderY, layout.sliderX + layout.sliderW, sliderY + 1, 0x40FFFFFF.toInt())
+                // 【NativeClickGui 滑条样式】对齐 SettingRows SliderRow: 4px 高圆角轨道 + 10px 圆形手柄
+                drawRoundedRect(ctx, layout.sliderX.toFloat(), trackY, layout.sliderW.toFloat(), 4f, 2f, 0xFF333333.toInt())  // SLIDER_TRACK
 
                 if (isRange) {
                     val lx = layout.lowerPointX
                     val ux = layout.upperPointX.coerceAtLeast(lx + 2)
-                    fillRect(ctx, lx, sliderY, ux, sliderY + 1, ACCENT)
-                    fillRect(ctx, lx - 3, sliderY - 3, lx + 3, sliderY + 3, TEXT_BRIGHT)
-                    fillRect(ctx, ux - 3, sliderY - 3, ux + 3, sliderY + 3, TEXT_BRIGHT)
+                    // 填充条: 从下限到上限 (对齐 SliderRow fillRoundedRect)
+                    drawRoundedRect(ctx, lx.toFloat(), trackY, (ux - lx).toFloat(), 4f, 2f, ACCENT)
+                    // 双端点圆形手柄 (对齐 SliderRow drawHandle: d=10, GPU 正圆)
+                    drawCircle(ctx, lx.toFloat(), trackY + 2f, 5f, ACCENT)
+                    drawCircle(ctx, ux.toFloat(), trackY + 2f, 5f, ACCENT)
                 } else {
                     val progress = if (layout.maxV > layout.minV) {
                         ((layout.fv - layout.minV) / (layout.maxV - layout.minV)).coerceIn(0f, 1f)
                     } else {
                         0f
                     }
-                    fillRect(ctx, layout.sliderX, sliderY, layout.sliderX + (layout.sliderW * progress).toInt(), sliderY + 1, ACCENT)
-                    fillRect(ctx, layout.sliderX + (layout.sliderW * progress).toInt() - 3, sliderY - 3, layout.sliderX + (layout.sliderW * progress).toInt() + 3, sliderY + 3, TEXT_BRIGHT)
+                    val fillW = (layout.sliderW * progress).toInt().coerceAtLeast(0)
+                    if (fillW > 0) {
+                        drawRoundedRect(ctx, layout.sliderX.toFloat(), trackY, fillW.toFloat(), 4f, 2f, ACCENT)  // SLIDER_FILL
+                    }
+                    // 单值圆形手柄 (对齐 SliderRow drawHandle)
+                    drawCircle(ctx, layout.sliderX + (layout.sliderW * progress).toFloat(), trackY + 2f, 5f, ACCENT)  // SLIDER_HANDLE
                 }
                 drawText(ctx, font, layout.valText, layout.valX, (y + 3f).toInt(), TEXT_DIM)
             }
