@@ -982,12 +982,13 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             val headerY = targetPanel.y
             val headerH = HEADER_H
             if (my in headerY.toInt()..(headerY + headerH).toInt()) {
-                if (btn == 1) {
+                // FIX: SDL 鼠标键值 (左=1, 右=3)，非 GLFW (左=0, 右=1)
+                if (btn == InputConstants.MOUSE_BUTTON_RIGHT) {
                     targetPanel.collapsed = !targetPanel.collapsed
                     layoutDirty = true
                     // 【修复】不再立即保存，延迟到 onClose/removed 时统一保存
                     return true
-                } else if (btn == 0) {
+                } else if (btn == InputConstants.MOUSE_BUTTON_LEFT) {
                     targetPanel.draggingPanel = true
                     targetPanel.dragOffsetX = mx - targetPanel.x
                     targetPanel.dragOffsetY = my - targetPanel.y
@@ -1029,8 +1030,9 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                 val isExpanded = expandedModule == mod
                 val modEndY = curY + ITEM_H
                 if (my in curY.toInt()..modEndY.toInt()) {
+                    // FIX: SDL 鼠标键值 (左=1, 右=3)
                     when (btn) {
-                        0 -> {
+                        InputConstants.MOUSE_BUTTON_LEFT -> {
                             if (mod.name != "ClickGUI") {
                                 try {
                                     mod.enabled = !mod.enabled
@@ -1041,7 +1043,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                                 }
                             }
                         }
-                        1 -> {
+                        InputConstants.MOUSE_BUTTON_RIGHT -> {
                             expandedModule = if (expandedModule == mod) {
                                 null
                             } else {
