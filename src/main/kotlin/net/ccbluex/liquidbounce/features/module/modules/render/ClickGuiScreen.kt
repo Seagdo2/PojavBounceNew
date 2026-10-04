@@ -982,11 +982,10 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
             val headerY = targetPanel.y
             val headerH = HEADER_H
             if (my in headerY.toInt()..(headerY + headerH).toInt()) {
-                // FIX: SDL 鼠标键值 (左=1, 右=3)，非 GLFW (左=0, 右=1)
+                // MC 26.3 SDL: LEFT=1, RIGHT=3 (InputConstants.MOUSE_BUTTON_*)
                 if (btn == InputConstants.MOUSE_BUTTON_RIGHT) {
                     targetPanel.collapsed = !targetPanel.collapsed
                     layoutDirty = true
-                    // 【修复】不再立即保存，延迟到 onClose/removed 时统一保存
                     return true
                 } else if (btn == InputConstants.MOUSE_BUTTON_LEFT) {
                     targetPanel.draggingPanel = true
@@ -1030,7 +1029,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                 val isExpanded = expandedModule == mod
                 val modEndY = curY + ITEM_H
                 if (my in curY.toInt()..modEndY.toInt()) {
-                    // FIX: SDL 鼠标键值 (左=1, 右=3)
+                    // MC 26.3 SDL: LEFT=1, RIGHT=3 (InputConstants.MOUSE_BUTTON_*)
                     when (btn) {
                         InputConstants.MOUSE_BUTTON_LEFT -> {
                             if (mod.name != "ClickGUI") {
@@ -1062,7 +1061,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                         if (v is ModeValueGroup<*>) {
                             val titleEndY = curY + SETTING_H
                             if (my in curY.toInt()..titleEndY.toInt()) {
-                                if (btn == 0) {
+                                if (btn == InputConstants.MOUSE_BUTTON_LEFT) {
                                     if (collapsedGroups.contains(v)) {
                                         collapsedGroups.remove(v)
                                     } else {
@@ -1076,7 +1075,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                             for (mode in v.modes) {
                                 val settingEndY = curY + SETTING_H
                                 if (my in curY.toInt()..settingEndY.toInt()) {
-                                    if (btn == 0) {
+                                    if (btn == InputConstants.MOUSE_BUTTON_LEFT) {
                                         try {
                                             v.setByString(mode.name)
                                         } catch (_: Exception) {
@@ -1094,7 +1093,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
                             for (const in constants) {
                                 val settingEndY = curY + SETTING_H
                                 if (my in curY.toInt()..settingEndY.toInt()) {
-                                    if (btn == 0) {
+                                    if (btn == InputConstants.MOUSE_BUTTON_LEFT) {
                                         trySetValue(v, const)
                                     }
                                     return true
@@ -1117,7 +1116,7 @@ private val SEARCH_BG = 0xE0101012L.toInt()         // 搜索框黑色背景
     }
 
     private fun handleSettingClick(v: Value<*>, btn: Int, mx: Float, y: Float, w: Float, x: Float, panel: PanelData, indent: Float) {
-        if (btn != 0) {
+        if (btn != InputConstants.MOUSE_BUTTON_LEFT) {
             return
         }
         val actual = getActualValue(v) ?: return
