@@ -204,20 +204,24 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeCam
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeLook
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFullBright
+import net.ccbluex.liquidbounce.features.module.modules.render.DynamicIsland
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHoleESP
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleArrayList
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemChams
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemESP
+import net.ccbluex.liquidbounce.features.module.modules.render.SolsticeModernTargetInfo
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNotifications
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemTags
 import net.ccbluex.liquidbounce.features.module.modules.render.jumpeffect.ModuleJumpEffect
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleLogoffSpot
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleSolsticeNotifications
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleMobOwners
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNewChunks
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoBob
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoFov
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoHurtCam
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleSolsticeWatermark
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoSwing
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleParticles
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleProphuntESP
@@ -643,18 +647,22 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleFullBright,
             ModuleHoleESP,
             ModuleHud,
+            ModuleDynamicIsland,
             ModuleHats,
             ModuleItemESP,
             ModuleItemTags,
             ModuleJumpEffect,
             ModuleMobOwners,
+            ModuleSosticeModernTargetInfo,
             ModuleMurderMystery,
             ModuleHitFX,
             ModuleNametags,
+            ModuleSolsticeNotifications,
             ModuleCombineMobs,
             ModuleAspect,
             ModuleAutoF5,
             ModuleChams,
+            ModuleSolsticeWatermark,
             ModuleBedPlates,
             ModuleNoBob,
             ModuleArrayList,
