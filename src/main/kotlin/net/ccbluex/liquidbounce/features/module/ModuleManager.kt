@@ -653,7 +653,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleItemTags,
             ModuleJumpEffect,
             ModuleMobOwners,
-            ModuleSosticeModernTargetInfo,
+            ModuleSolsticeModernTargetInfo,
             ModuleMurderMystery,
             ModuleHitFX,
             ModuleNametags,
