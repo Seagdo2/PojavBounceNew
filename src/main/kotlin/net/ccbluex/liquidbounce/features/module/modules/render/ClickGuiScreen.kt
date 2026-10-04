@@ -220,6 +220,20 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
         }
     }
 
+    /** 圆角矩形描边 — GPU SDF 着色器 (对齐 GuiRender2D.strokeRoundedRect) */
+    private fun drawRoundedRectStroke(ctx: GuiGraphicsExtractor, x: Float, y: Float, w: Float, h: Float, radius: Float, thickness: Float, color: Int) {
+        if (w <= 0f || h <= 0f) return
+        val r = radius.coerceAtMost(w / 2f).coerceAtMost(h / 2f)
+        val cc = if ((color ushr 24) == 0) Color4b.TRANSPARENT else Color4b(color)
+        ctx.drawRoundedRect(
+            x1 = x, y1 = y, x2 = x + w, y2 = y + h,
+            radius = r,
+            fillColor = Color4b.TRANSPARENT,
+            outlineColor = cc,
+            outlineWidth = thickness,
+        )
+    }
+
     private val TEXT_SCALE = 0.9f
 
     private fun trimText(font: Font, text: String, maxWidth: Int): String {
@@ -266,6 +280,24 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
             val actual = getActualValue(v)
             if (v is ModeValueGroup<*>) {
                 h += max(1f, (1 + v.modes.size).toFloat()) * SETTING_H
+                // 【NativeClickGui 智能分组】加上激活模式子设置的行数 (对齐 renderModeListForModeGroup 的递归)
+                if (!collapsedGroups.contains(v)) {
+                    try {
+                        val activeChildren = v.get()?.filterIsInstance<Value<*>>() ?: emptyList()
+                        for (child in activeChildren) {
+                            if (child.name == "Bind" || child.name == "Hidden") continue
+                            val childActual = getActualValue(child)
+                            if (child is ModeValueGroup<*>) {
+                                h += max(1f, (1 + child.modes.size).toFloat()) * SETTING_H
+                            } else if (isEnumWithMultiple(childActual)) {
+                                h += max(1f, getEnumConstants(childActual).size.toFloat()) * SETTING_H
+                            } else {
+                                h += SETTING_H
+                            }
+                        }
+                    } catch (_: Exception) {
+                    }
+                }
             } else if (isEnumWithMultiple(actual)) {
                 val constants = getEnumConstants(actual)
                 h += max(1f, constants.size.toFloat()) * SETTING_H
@@ -444,9 +476,10 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
                 panelModules = getCategoryModules(category)
                 // 【修改】分类名移到标题栏最左边, ▼▶ 改为 –+ 并移到最右边
                 drawText(ctx, font, "§l${category.tag}", (px + 8f).toInt(), (py + 4f).toInt(), CATEGORY_TITLE)
-                val arrow = if (panel.collapsed) "–" else "+"
-                val arrowX = (px + pw - 10f - font.width(arrow) * TEXT_SCALE).roundToInt()
-                drawText(ctx, font, "§l$arrow", arrowX, (py + 4f).toInt(), CATEGORY_TITLE)
+                // 【NativeClickGui】倒指向标/侧指向标: 折叠=▸(侧指), 展开=▾(倒指) (对齐 NativePanel chevron 旋转)
+                val arrow = if (panel.collapsed) "▸" else "▾"
+                val arrowX = (px + pw - 12f - font.width(arrow) * TEXT_SCALE).roundToInt()
+                drawText(ctx, font, arrow, arrowX, (py + 4f).toInt(), if (panel.collapsed) TEXT_DIM else CATEGORY_TITLE)
                 // 【NativeClickGui】标题栏底部 ACCENT 边线: 2px (对齐 NativePanel line + PANEL_HEADER_BORDER)
                 fillRect(ctx, px, py + HEADER_H - 2f, px + pw, py + HEADER_H, ACCENT)
             }
@@ -494,9 +527,10 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
                     }
                     val nameMaxW = (listAreaW - 16).toInt()
                     drawText(ctx, font, trimText(font, mod.name, nameMaxW), (listAreaX + 4f).toInt(), (curY + 4f).toInt(), nameColor)
-                    val dotX = (listAreaX + listAreaW - 4f).toInt()
-                    val dotY = curY.toInt() + 7
-                    fillRect(ctx, dotX, dotY, dotX + 4, dotY + 4, if (mod.enabled) ACCENT else 0x40808080.toInt())
+                    // 【NativeClickGui】模块开关指示: 正圆形 (对齐 screenshot, GPU 圆形着色器)
+                    val dotCx = listAreaX + listAreaW - 4f
+                    val dotCy = curY + ITEM_H / 2f
+                    drawCircle(ctx, dotCx, dotCy, 2.5f, if (mod.enabled) ACCENT else 0x40808080.toInt())
                 }
 
                 curY += ITEM_H
@@ -509,6 +543,24 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
                         val actual = getActualValue(v)
                         if (v is ModeValueGroup<*>) {
                             totalSettingH += max(1f, (1 + v.modes.size).toFloat()) * SETTING_H
+                            // 【NativeClickGui 智能分组】加上激活模式子设置的行数
+                            if (!collapsedGroups.contains(v)) {
+                                try {
+                                    val activeChildren = v.get()?.filterIsInstance<Value<*>>() ?: emptyList()
+                                    for (child in activeChildren) {
+                                        if (child.name == "Bind" || child.name == "Hidden") continue
+                                        val childActual = getActualValue(child)
+                                        if (child is ModeValueGroup<*>) {
+                                            totalSettingH += max(1f, (1 + child.modes.size).toFloat()) * SETTING_H
+                                        } else if (isEnumWithMultiple(childActual)) {
+                                            totalSettingH += max(1f, getEnumConstants(childActual).size.toFloat()) * SETTING_H
+                                        } else {
+                                            totalSettingH += SETTING_H
+                                        }
+                                    }
+                                } catch (_: Exception) {
+                                }
+                            }
                         } else if (isEnumWithMultiple(actual)) {
                             totalSettingH += max(1f, getEnumConstants(actual).size.toFloat()) * SETTING_H
                         } else {
@@ -579,7 +631,13 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
         val searchH = 18f
         val searchX = (sc - searchW) / 2f
         val searchY = 6f
+        // 【NativeClickGui】搜索面板投影 (对齐 NativeSearchBar dropShadow)
+        drawShadow(ctx, searchX, searchY, searchW, searchH, 5f, TAB_BG)
         drawRoundedRect(ctx, searchX, searchY, searchW, searchH, 5f, SEARCH_BG)
+        if (searchFocused) {
+            // 【NativeClickGui】聚焦时 ACCENT 描边 (对齐 NativeSearchBar strokeRoundedRect)
+            drawRoundedRectStroke(ctx, searchX, searchY, searchW, searchH, 5f, 1f, ACCENT)
+        }
 
         if (searchText.isEmpty()) {
             drawText(ctx, font, "§7Search modules...", (searchX + 4f).toInt(), (searchY + 3f).toInt(), TEXT_DIM)
@@ -726,10 +784,11 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
         when {
             isGroup -> {
                 val isCollapsed = collapsedGroups.contains(v)
+                // 【NativeClickGui】分组指向标: 折叠=▸(侧指), 展开=▾(倒指)
                 val arrow = if (isCollapsed) {
-                    "▶"
+                    "▸"
                 } else {
-                    "▼"
+                    "▾"
                 }
                 fillRect(ctx, x, y, x + w, y + SETTING_H, GROUP_BG)
                 val groupMaxW = (w - 16 - indent).toInt().coerceAtLeast(10)
@@ -776,9 +835,9 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
                     val ux = layout.upperPointX.coerceAtLeast(lx + 2)
                     // 填充条: 从下限到上限 (对齐 SliderRow fillRoundedRect)
                     drawRoundedRect(ctx, lx.toFloat(), trackY, (ux - lx).toFloat(), 4f, 2f, ACCENT)
-                    // 双端点圆形手柄 (对齐 SliderRow drawHandle: d=10, GPU 正圆)
-                    drawCircle(ctx, lx.toFloat(), trackY + 2f, 5f, ACCENT)
-                    drawCircle(ctx, ux.toFloat(), trackY + 2f, 5f, ACCENT)
+                    // 双端点圆形手柄 — 调小 (对齐 screenshot: 小蓝点, d=7 → r=3.5)
+                    drawCircle(ctx, lx.toFloat(), trackY + 2f, 3.5f, ACCENT)
+                    drawCircle(ctx, ux.toFloat(), trackY + 2f, 3.5f, ACCENT)
                 } else {
                     val progress = if (layout.maxV > layout.minV) {
                         ((layout.fv - layout.minV) / (layout.maxV - layout.minV)).coerceIn(0f, 1f)
@@ -789,8 +848,8 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
                     if (fillW > 0) {
                         drawRoundedRect(ctx, layout.sliderX.toFloat(), trackY, fillW.toFloat(), 4f, 2f, ACCENT)  // SLIDER_FILL
                     }
-                    // 单值圆形手柄 (对齐 SliderRow drawHandle)
-                    drawCircle(ctx, layout.sliderX + (layout.sliderW * progress).toFloat(), trackY + 2f, 5f, ACCENT)  // SLIDER_HANDLE
+                    // 单值圆形手柄 — 调小 (对齐 screenshot: 小蓝点, d=7 → r=3.5)
+                    drawCircle(ctx, layout.sliderX + (layout.sliderW * progress).toFloat(), trackY + 2f, 3.5f, ACCENT)  // SLIDER_HANDLE
                 }
                 drawText(ctx, font, layout.valText, layout.valX, (y + 3f).toInt(), TEXT_DIM)
             }
@@ -832,23 +891,59 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
         val collapsed = collapsedGroups.contains(v)
 
         fillRect(ctx, x, curY, x + w, curY + SETTING_H, GROUP_BG)
-        drawText(ctx, font, "${if (collapsed) "▶" else "▼"} ${v.name}", labelX, (curY + 4f).toInt(), ACCENT)
+        // 【NativeClickGui】模式组指向标: 折叠=▸, 展开=▾
+        drawText(ctx, font, "${if (collapsed) "▸" else "▾"} ${v.name}", labelX, (curY + 4f).toInt(), ACCENT)
         if (collapsed) {
             return 1
         }
 
         var yOff = curY + SETTING_H
+        var rowCount = 1
         for (mode in v.modes) {
             val isActive = mode === v.activeMode
-            val dotX = labelX + 4
-            val dotY = yOff.toInt() + 6
-            fillRect(ctx, dotX, dotY, dotX + 4, dotY + 4, if (isActive) ACCENT else 0x40808080.toInt())
-            val textX = dotX + 6
+            // 【NativeClickGui】模式行指示: 正圆形 (GPU 圆形着色器)
+            val dotCx = labelX + 4 + 2f
+            val dotCy = yOff + SETTING_H / 2f
+            drawCircle(ctx, dotCx, dotCy, 2.5f, if (isActive) ACCENT else 0x40808080.toInt())
+            val textX = dotCx.toInt() + 7
             val maxTextW = (x + w - 8 - textX).toInt().coerceAtLeast(10)
             drawText(ctx, font, trimText(font, mode.name, maxTextW), textX, (yOff + 4f).toInt(), if (isActive) TEXT_BRIGHT else TEXT_DIM)
             yOff += SETTING_H
+            rowCount++
         }
-        return 1 + v.modes.size
+
+        // 【NativeClickGui 智能分组】只显示当前激活模式的设置 (对齐 SettingRenderer.build 的递归:
+        // value.get() 返回激活模式的 children, 非 ValueGroup 类型直接渲染, ValueGroup 递归)
+        try {
+            val activeChildren = v.get()?.filterIsInstance<Value<*>>() ?: emptyList()
+            for (child in activeChildren) {
+                if (child.name == "Bind" || child.name == "Hidden") continue
+                val childActual = getActualValue(child)
+                if (child is ModeValueGroup<*>) {
+                    // 嵌套模式组 → 递归
+                    val subRows = renderModeListForModeGroup(ctx, font, child, x, yOff, w, depth + 1, mouseX, mouseY)
+                    yOff += subRows * SETTING_H
+                    rowCount += subRows
+                } else if (childActual is Boolean || isSliderValue(child) || isColorValue(child) || isBindValue(child)) {
+                    // 激活模式的设置行 → 用 renderSetting 渲染 (缩进+1)
+                    renderSetting(ctx, child, depth + 1, x, yOff, w, mouseX, mouseY, null)
+                    yOff += SETTING_H
+                    rowCount++
+                } else if (isEnumWithMultiple(childActual)) {
+                    // 枚举列表
+                    val enumRows = renderModeListVertical(ctx, font, child, getEnumConstants(childActual), childActual as Enum<*>, x, yOff, w, depth + 1, mouseX, mouseY, yOff, Float.MAX_VALUE)
+                    yOff += enumRows * SETTING_H
+                    rowCount += enumRows
+                } else {
+                    // 其他类型 (文本等)
+                    renderSetting(ctx, child, depth + 1, x, yOff, w, mouseX, mouseY, null)
+                    yOff += SETTING_H
+                    rowCount++
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return rowCount
     }
 
     private fun renderModeListVertical(ctx: GuiGraphicsExtractor, font: Font, v: Value<*>, constants: List<Any>, current: Enum<*>, x: Float, curY: Float, w: Float, depth: Int, mouseX: Int, mouseY: Int, listAreaY: Float, listAreaH: Float): Int {
@@ -1066,6 +1161,56 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
                                     return true
                                 }
                                 curY += SETTING_H
+                            }
+                            // 【NativeClickGui 智能分组】激活模式子设置的点击处理
+                            if (!collapsedGroups.contains(v)) {
+                                try {
+                                    val activeChildren = v.get()?.filterIsInstance<Value<*>>() ?: emptyList()
+                                    for (child in activeChildren) {
+                                        if (child.name == "Bind" || child.name == "Hidden") continue
+                                        val childActual = getActualValue(child)
+                                        if (child is ModeValueGroup<*>) {
+                                            val subTitleEndY = curY + SETTING_H
+                                            if (my in curY.toInt()..subTitleEndY.toInt()) {
+                                                if (btn == InputConstants.MOUSE_BUTTON_LEFT) {
+                                                    if (collapsedGroups.contains(child)) collapsedGroups.remove(child) else collapsedGroups.add(child)
+                                                    layoutDirty = true
+                                                }
+                                                return true
+                                            }
+                                            curY += SETTING_H
+                                            for (subMode in child.modes) {
+                                                val subEndY = curY + SETTING_H
+                                                if (my in curY.toInt()..subEndY.toInt()) {
+                                                    if (btn == InputConstants.MOUSE_BUTTON_LEFT) {
+                                                        try { child.setByString(subMode.name) } catch (_: Exception) {}
+                                                        valuesCache.clear(); valuesCacheTime = 0L
+                                                    }
+                                                    return true
+                                                }
+                                                curY += SETTING_H
+                                            }
+                                        } else if (isEnumWithMultiple(childActual)) {
+                                            curY += SETTING_H
+                                            for (const in getEnumConstants(childActual)) {
+                                                val eEndY = curY + SETTING_H
+                                                if (my in curY.toInt()..eEndY.toInt()) {
+                                                    if (btn == InputConstants.MOUSE_BUTTON_LEFT) trySetValue(child, const)
+                                                    return true
+                                                }
+                                                curY += SETTING_H
+                                            }
+                                        } else {
+                                            val cEndY = curY + SETTING_H
+                                            if (my in curY.toInt()..cEndY.toInt()) {
+                                                handleSettingClick(child, btn, mx.toFloat(), curY, listAreaW, listAreaX, panel, (depth + 1) * SETTING_INDENT)
+                                                return true
+                                            }
+                                            curY += SETTING_H
+                                        }
+                                    }
+                                } catch (_: Exception) {
+                                }
                             }
                         } else if (isEnumWithMultiple(actual)) {
                             val constants = getEnumConstants(actual)
