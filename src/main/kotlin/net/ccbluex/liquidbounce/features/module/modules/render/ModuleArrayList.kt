@@ -40,6 +40,7 @@ import net.ccbluex.liquidbounce.render.drawQuad
 import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.withPush
+import net.ccbluex.liquidbounce.utils.client.mc
 import java.awt.Color
 import kotlin.math.exp
 import kotlin.math.roundToInt
@@ -330,9 +331,9 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
         // ----- 水印（在列表之前）-----
         if (waterMarkEnabled) renderWaterMark(context, font)
 
-        // 收集已启用模块
-        var modules = ModuleManager.getModules()
-            .filter { it.enabled && !it.hidden && (showSelf || it !== self) }
+        // 收集已启用模块 (26.3: ModuleManager 实现 Collection<ClientModule>)
+        var modules = ModuleManager.toList()
+            .filter { it.enabled && !it.hidden && (showSelf || it !== this) }
             .toList()
 
         animations.keys.retainAll(modules)
@@ -349,8 +350,8 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
 
         if (modules.isEmpty()) return@handler
 
-        val screenWidth = context.guiWidth()
-        val screenHeight = context.guiHeight()
+        val screenWidth = mc.window.guiScaledWidth
+        val screenHeight = mc.window.guiScaledHeight
         val fontHeight = font.lineHeight
 
         // 构建条目
@@ -597,8 +598,8 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
         // 【ModuleArrayList77】水印位置支持负数: 负数 = 从屏幕右/下边缘回退
         val wmW = f.width(wmText) * wmScale + wmPad * 2f
         val wmH = f.lineHeight * wmScale + wmPad * 2f
-        val wmBgX = resolveX(waterMarkX, wmW.roundToInt(), false, ctx.guiWidth()).toFloat() - wmPad
-        val wmBgY = resolveY(waterMarkY, wmH.roundToInt(), ctx.guiHeight()).toFloat() - wmPad
+        val wmBgX = resolveX(waterMarkX, wmW.roundToInt(), false, mc.window.guiScaledWidth).toFloat() - wmPad
+        val wmBgY = resolveY(waterMarkY, wmH.roundToInt(), mc.window.guiScaledHeight).toFloat() - wmPad
         val wmBgW = wmW
         val wmBgH = wmH
 
