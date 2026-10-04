@@ -23,7 +23,6 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.GameType
-import org.lwjgl.glfw.GLFW
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
@@ -35,7 +34,7 @@ object ModuleDynamicIsland : ClientModule(
     ModuleCategories.RENDER,
     aliases = listOf("DynamicIslandHUD", "Island"),
 ) {
-
+init { enabled = true }
     /* ============================= 可调节 ============================= */
 
     private val offsetX by float("Offset X", 0f, -400f..400f)
@@ -189,24 +188,12 @@ object ModuleDynamicIsland : ClientModule(
 
     private fun isTabHeld(): Boolean {
         if (!showTabList) return false
+        // 【FIX】MC 26.3 使用 SDL (非 GLFW): InputConstants.isKeyDown 用 SDL_GetKeyboardState 全局检测,
+        // 无需反射获取 window handle。KEY_TAB = 43 (SDL scancode), 已在 26.3 InputConstants.java:134 验证。
         return try {
-            val win = mc.window
-            var handle = 0L
-            try {
-                val f = win.javaClass.getDeclaredField("handle")
-                f.isAccessible = true
-                handle = f.getLong(win)
-            } catch (_: Throwable) {
-                try {
-                    handle = win.javaClass.methods.firstOrNull {
-                        it.name.equals("getHandle", true) && it.parameterCount == 0
-                    }?.invoke(win) as? Long ?: 0L
-                } catch (_: Throwable) {
-                    return false
-                }
-            }
-            if (handle == 0L) return false
-            GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_TAB) == GLFW.GLFW_PRESS
+            com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+                com.mojang.blaze3d.platform.InputConstants.KEY_TAB
+            )
         } catch (_: Throwable) {
             false
         }

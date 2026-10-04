@@ -764,7 +764,7 @@ private val SEARCH_BG = 0x5A000000               // 搜索框 = BASE_90 (对齐 
         return SliderLayout(sliderX, sliderW, valText, valX, fv, minV, maxV, rangeWidth, lowerPointX, upperPointX, rangeEnd)
     }
 
-    private fun renderSetting(ctx: GuiGraphicsExtractor, v: Value<*>, depth: Int, x: Float, y: Float, w: Float, mouseX: Int, mouseY: Int, mod: ClientModule) {
+    private fun renderSetting(ctx: GuiGraphicsExtractor, v: Value<*>, depth: Int, x: Float, y: Float, w: Float, mouseX: Int, mouseY: Int, mod: ClientModule?) {
         val font = minecraft!!.font
         val indent = depth * SETTING_INDENT
 
