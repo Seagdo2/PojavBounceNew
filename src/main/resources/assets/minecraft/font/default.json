@@ -1,1 +1,12 @@
-q
+{
+    "providers": [
+        {
+            "type": "ttf",
+            "file": "minecraft:superrpgfont.ttf",
+            "shift": [0.5, 0.5],
+			"size": 10.0,
+			"oversample": 6.0
+
+        }
+	]
+}
