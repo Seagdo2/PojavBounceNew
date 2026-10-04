@@ -205,9 +205,11 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeCam
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeLook
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFullBright
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHoleESP
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleArrayList
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemChams
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemESP
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNotifications
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleItemTags
 import net.ccbluex.liquidbounce.features.module.modules.render.jumpeffect.ModuleJumpEffect
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleLogoffSpot
@@ -655,11 +657,13 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleChams,
             ModuleBedPlates,
             ModuleNoBob,
+            ModuleArrayList,
             ModuleNoFov,
             ModuleNoHurtCam,
             ModuleNoSwing,
             ModuleCustomAmbience,
             ModuleProphuntESP,
+            ModuleNotifications,
             ModuleQuickPerspectiveSwap,
             ModuleRadar,
             ModuleRotations,
