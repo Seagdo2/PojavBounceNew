@@ -2,7 +2,7 @@
     "providers": [
         {
             "type": "ttf",
-            "file": "minecraft:superrpgfont.ttf",
+            "file": "minecraft:font.ttf",
             "shift": [0.5, 0.5],
 			"size": 10.0,
 			"oversample": 6.0
