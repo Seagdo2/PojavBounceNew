@@ -132,15 +132,26 @@ class NativeSearchBar(
 
     fun keyPressed(keyCode: Int): Boolean {
         if (!focused) return false
-        if (keyCode == 259 && query.isNotEmpty()) { // backspace
+        // 【FIX】MC 26.3 用 SDL 键码: KEY_BACKSPACE=42, KEY_ESCAPE=41 (InputConstants.java:134/136)
+        // 旧代码用 GLFW 键码(259/256), 在 MC 26.3 下永远不匹配导致退格/ESC失效
+        if (keyCode == 42 && query.isNotEmpty()) { // KEY_BACKSPACE (SDL)
             query = query.dropLast(1)
             refresh()
             return true
         }
-        if (keyCode == 256) { // escape: clear focus, let the screen decide whether to close
+        if (keyCode == 41) { // KEY_ESCAPE (SDL) — 取消聚焦
             focused = false
             return true
         }
         return false
+    }
+
+    /** 接收 IME preedit 文本 (Android 输入法在提交前走 preedit 而非 textInput) */
+    fun preeditUpdated(text: String): Boolean {
+        if (!focused) return false
+        if (text.isBlank()) return true
+        query = text  // 直接替换为 preedit 内容
+        refresh()
+        return true
     }
 }
