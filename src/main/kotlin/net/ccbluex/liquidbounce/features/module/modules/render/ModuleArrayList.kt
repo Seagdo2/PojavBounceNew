@@ -117,7 +117,7 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
     private val showSelf by boolean("Show Self", true)
 
     // —— 外观 ——
-    private val textShadow by boolean("Text Shadow", true)
+    private val textShadow by boolean("Text Shadow", false)
     private val background by boolean("Background", false)
 
     // 【ModuleArrayList_9】Background Alpha → Background Color (默认值等效: 黑色 alpha 80)
@@ -132,7 +132,7 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
     private val border by boolean("Border", false)
 
     // —— 颜色 ——
-    private val colorMode by enumChoice("Color Mode", ColorMode.RAINBOW_TEXT)
+    private val colorMode by enumChoice("Color Mode", ColorMode.CUSTOM2)
     private val customColor by color("Color", Color4b(0, 160, 255))
     private val rainbowSpeed by float("Rainbow Speed", 6f, 0.1f..10f)
     private val rainbowOffset by int("Rainbow Offset", 5, 0..90)
@@ -158,7 +158,7 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
     private val barMode by enumChoice("Bar Mode", BarMode.FOLLOW)
     private val barWidth by int("Bar Width", 2, 0..8)
     private val barCustomColor by color("Bar Color", Color4b.WHITE)
-    private val barSide by enumChoice("Bar Side", BarSide.AUTO)
+    private val barSide by enumChoice("Bar Side", BarSide.LEFT)
 
     // —— 动画 ——
     private val animationSpeed by float("Animation Speed", 50f, 1f..50f)
@@ -169,7 +169,7 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
     private val glowMode by enumChoice("Glow Mode", GlowMode.BOTH)
     private val glowRange by float("Glow Range", 18f, 0f..30f)
     private val glowStrength by float("Glow Strength", 0.04f, 0.01f..1f)
-    private val glowDensity by int("Glow Density", 6, 1..12)
+    private val glowDensity by int("Glow Density", 12, 1..12)
     private val glowOffsetX by float("Glow Offset X", 0f, -16f..16f)
     private val glowOffsetY by float("Glow Offset Y", 0f, -16f..16f)
 
@@ -181,10 +181,10 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
     // —— Shadow 阴影 ——
     private val shadowEnabled by boolean("Shadow", true)
     private val shadowMode by enumChoice("Shadow Mode", ShadowMode.EDGE)
-    private val shadowRange by float("Shadow Range", 24f, 0f..30f)
+    private val shadowRange by float("Shadow Range", 25f, 0f..30f)
     private val shadowOffsetX by float("Shadow Offset X", 0f, -20f..20f)
     private val shadowOffsetY by float("Shadow Offset Y", 0f, -20f..20f)
-    private val shadowStrength by float("Shadow Strength", 0.1f, 0.01f..1f)
+    private val shadowStrength by float("Shadow Strength", 0.08f, 0.01f..1f)
     private val shadowDensity by int("Shadow Density", 6, 0..10)
 
     // ==================== 水印 ====================

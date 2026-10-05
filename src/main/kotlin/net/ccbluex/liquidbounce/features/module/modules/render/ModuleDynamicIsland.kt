@@ -34,7 +34,7 @@ object ModuleDynamicIsland : ClientModule(
     ModuleCategories.RENDER,
     aliases = listOf("DynamicIslandHUD", "Island"),
 ) {
-init { enabled = true }
+
     /* ============================= 可调节 ============================= */
 
     private val offsetX by float("Offset X", 0f, -400f..400f)
@@ -63,6 +63,7 @@ init { enabled = true }
     private val iconChip by color("Icon Chip", Color4b(255, 255, 255, 28))
 
     private val showDefaultInfo by boolean("Default Info", true)
+    private val showServerIp by boolean("Show Server IP", true)
     private val showFps by boolean("Show FPS", true)
     private val showTime by boolean("Show Time", true)
     private val showCoords by boolean("Show Coords", false)
@@ -149,9 +150,11 @@ init { enabled = true }
 
     /* ============================= 工具 ============================= */
 
+    /** 帧率无关的指数衰减缓动: 所有动画(宽/高/淡入淡出)共用同一个 dt, 与面板绘制速率完全同步 */
     private fun easeTo(current: Float, target: Float, speed: Float, dt: Float): Float {
-        if (current < 0f) return target
-        val t = (1f - (1f - 0.15f).pow(dt * speed)).coerceIn(0f, 1f)
+        if (current < 0f || current == target) return target
+        // exp 衰减: 每秒向目标移动 (1 - e^-speed*0.15) ≈ 85%, 数学上与帧率完全无关
+        val t = (1f - kotlin.math.exp(-dt * speed * 0.15f)).coerceIn(0f, 1f)
         return current + (target - current) * t
     }
 
@@ -205,11 +208,30 @@ init { enabled = true }
 
     /* ============================= 内容构建 ============================= */
 
-    private data class DefaultContent(val left: String, val mid: String, val right: String)
+    /** 服务器 IP 显示: 多人 = "To <ip>", 单人 = "To SinglePlayer" (对齐 26.3 MC: getCurrentServer/ServerData.ip) */
+    private fun serverIpText(): String {
+        return try {
+            val server = mc.getCurrentServer()
+            if (server != null) {
+                val ip = server.ip ?: ""
+                if (ip.isNotBlank()) "To $ip" else "To Server"
+            } else {
+                "To SinglePlayer"
+            }
+        } catch (_: Throwable) {
+            "To SinglePlayer"
+        }
+    }
+
+    private data class DefaultContent(val left: String, val mids: List<String>)
 
     private fun buildDefaultContent(): DefaultContent {
         val p = mc.player
+        // 顺序: ServerIP(玩家名与时间之间) → 时间 → FPS → 坐标, 全部用 " | " 竖杠隔开
         val parts = mutableListOf<String>()
+        if (showServerIp) {
+            parts += serverIpText()
+        }
         if (showTime) {
             val cal = java.util.Calendar.getInstance()
             parts += String.format(Locale.ROOT, "%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE))
@@ -230,13 +252,7 @@ init { enabled = true }
         if (showCoords && p != null) {
             parts += String.format(Locale.ROOT, "%.0f %.0f %.0f", p.x, p.y, p.z)
         }
-        val name = p?.gameProfile?.name ?: "Player"
-        return when (parts.size) {
-            0 -> DefaultContent(name, "", "")
-            1 -> DefaultContent(name, parts[0], "")
-            2 -> DefaultContent(name, parts[0], parts[1])
-            else -> DefaultContent(name, parts[0], parts.drop(1).joinToString(" · "))
-        }
+        return DefaultContent(p?.gameProfile?.name ?: "Player", parts)
     }
 
     private data class BlockSnap(val visible: Boolean, val itemName: String, val detail: String, val progress: Float, val alpha: Float)
@@ -332,9 +348,11 @@ init { enabled = true }
     }
 
     private fun measureDefault(content: DefaultContent, screenW: Float): Layout {
-        val textW = measure(content.left) +
-            (if (content.mid.isNotEmpty()) measure(" | ") + measure(content.mid) else 0f) +
-            (if (content.right.isNotEmpty()) measure(" | ") + measure(content.right) else 0f)
+        // 逐项累加: 文字宽 + 每项前的 " | " 竖杠宽 (与 drawDefault 的间距一致)
+        var textW = measure(content.left)
+        for (part in content.mids) {
+            textW += 16f * uiScale + measure("|") + measure(part)
+        }
         val maxW = screenW - 48f
         val w = clamp(max(minWidth * uiScale, textW + PADDING_X * 2f * uiScale), minWidth * 0.5f, maxW)
         val h = islandHeight * uiScale
@@ -382,20 +400,17 @@ init { enabled = true }
         var cx = x + PADDING_X * uiScale
         val tc = withA(textPrimary, a)
         val sc = withA(separatorCol, a)
+        val sec = withA(textSecondary, a)
+        // 玩家名 (textPrimary)
         text(f, content.left, cx.roundToInt(), ty.roundToInt(), tc.argb, true)
         cx += measure(content.left)
-        if (content.mid.isNotEmpty()) {
+        // 次要内容 (ServerIP/时间/FPS/坐标 — 全部 textSecondary, 用 | 分隔)
+        for (part in content.mids) {
             cx += 8f * uiScale
             text(f, "|", cx.roundToInt(), ty.roundToInt(), sc.argb, false)
             cx += measure("|") + 8f * uiScale
-            text(f, content.mid, cx.roundToInt(), ty.roundToInt(), withA(textSecondary, a).argb, false)
-            cx += measure(content.mid)
-        }
-        if (content.right.isNotEmpty()) {
-            cx += 8f * uiScale
-            text(f, "|", cx.roundToInt(), ty.roundToInt(), sc.argb, false)
-            cx += measure("|") + 8f * uiScale
-            text(f, content.right, cx.roundToInt(), ty.roundToInt(), withA(textSecondary, a).argb, false)
+            text(f, part, cx.roundToInt(), ty.roundToInt(), sec.argb, false)
+            cx += measure(part)
         }
     }
 

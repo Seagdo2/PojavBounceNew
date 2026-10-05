@@ -16,7 +16,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 object ModuleSolsticeWatermark : ClientModule(
-    "SolsticeWatermark",
+    "Watermark",
     ModuleCategories.RENDER,
     aliases = listOf("Watermark", "SolsticeWM"),
 ) {
@@ -29,12 +29,12 @@ object ModuleSolsticeWatermark : ClientModule(
 
     private val style by enumChoice("Style", Style.SOLSTICE)
     /** 显示文字，可在模块设置里修改 */
-    private val customText by text("Text", "solstice")
+    private val customText by text("Text", "PojavBounceNew")
     private val glow by boolean("Glow", true)
-    private val dropShadow by boolean("Drop Shadow", true)
+    private val dropShadow by boolean("Drop Shadow", false)
     private val bold by boolean("Bold", false)
 
-    private val fontScale by float("Font Scale", 1.8f, 1f..4f)
+    private val fontScale by float("Font Scale", 1.4f, 1f..4f)
     private val posX by float("Pos X", 12f, 0f..800f)
     private val posY by float("Pos Y", 10f, 0f..600f)
     private val shadowOffset by float("Shadow Offset", 1.5f, 0f..6f)

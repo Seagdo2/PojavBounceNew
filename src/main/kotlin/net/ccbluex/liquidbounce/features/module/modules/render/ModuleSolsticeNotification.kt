@@ -64,8 +64,6 @@ object ModuleSolsticeNotification : ClientModule(
     private val showOnJoin by boolean("Show On Join", true)
     private val soundOnToggle by boolean("Sound On Toggle", true)
     private val soundVolume by float("Sound Volume", 0.6f, 0f..1f)
-    private val colorGradient by boolean("Color Gradient", true)
-    private val progressRainbow by boolean("Progress Rainbow", false)
     private val limitNotifications by boolean("Limit Notifications", false)
     private val maxNotifications by int("Max Notifications", 6, 1..25)
     private val fontSize by float("Font Size", 11f, 8f..20f)
@@ -75,31 +73,43 @@ object ModuleSolsticeNotification : ClientModule(
     private val defaultDuration by float("Default Duration", 3f, 1f..15f)
     private val cornerRadius by float("Corner Radius", 5f, 0f..16f)
 
-    private val glow by boolean("Glow", true)
-    private val glowRadius by float("Glow Radius", 16f, 2f..48f)
-    private val glowStrength by float("Glow Strength", 0.85f, 0.05f..1.5f)
-    private val glowLayers by int("Glow Layers", 12, 3..24)
-    private val glowSoftness by float("Glow Softness", 1.35f, 0.5f..3f)
-    private val glowSpread by float("Glow Spread", 1.0f, 0.3f..2.5f)
-    private val glowInner by float("Glow Inner", 0.15f, 0f..0.8f)
-    private enum class GlowColorMode(override val tag: String) : Tagged {
-        CUSTOM("Custom"),
-        THEME("Theme"),
-        TYPE("By Type"),
+    // ==================== 颜色模式 (对齐 ArrayList Custom2 写法) ====================
+    private enum class NotifColorMode(override val tag: String) : Tagged {
+        /** Custom2: 自定义多色流水渐变 (1~7色, 仿 RAINBOW_TEXT 同帧多色流动) */
+        CUSTOM2("Custom2"),
+        /** Gradient: 进度条左→右两色渐变 */
         GRADIENT("Gradient"),
+        /** By Type: Warning黄 / Error红 / Info用 Custom2 */
+        TYPE("By Type"),
     }
+    private val colorMode by enumChoice("Color Mode", NotifColorMode.CUSTOM2)
 
-    private val glowColorMode by enumChoice("Glow Color Mode", GlowColorMode.CUSTOM)
-    private val glowColor by color("Glow Color", Color4b(0xE9, 0xA8, 0xBC, 255))
-    private val glowColor2 by color("Glow Color 2", Color4b(0x6E, 0xC8, 0xF1, 255))
-    private val glowAlpha by float("Glow Alpha", 1f, 0.1f..1.5f)
-    private val glowPulse by boolean("Glow Pulse", false)
-    private val glowPulseSpeed by float("Glow Pulse Speed", 2.2f, 0.5f..8f)
+    // —— Custom2 自定义多色流水渐变 (写法与 ModuleArrayList 完全一致) ——
+    private val custom2ColorCount by int("C2 Color Count", 2, 1..7)
+    private val custom2Color1 by color("C2 Color 1", Color4b(0x99, 0x33, 0xFF)) // 紫
+    private val custom2Color2 by color("C2 Color 2", Color4b(0x33, 0x66, 0xFF)) // 蓝
+    private val custom2Color3 by color("C2 Color 3", Color4b(0x33, 0xFF, 0x66)) // 绿
+    private val custom2Color4 by color("C2 Color 4", Color4b(0xFF, 0xFF, 0x33)) // 黄
+    private val custom2Color5 by color("C2 Color 5", Color4b(0xFF, 0x99, 0x33)) // 橙
+    private val custom2Color6 by color("C2 Color 6", Color4b(0xFF, 0x33, 0x99)) // 玫红
+    private val custom2Color7 by color("C2 Color 7", Color4b(0xFF, 0x33, 0x33)) // 红
+    private val custom2Speed by float("C2 Speed", 6f, 0.1f..20f)
+    private val custom2Spread by float("C2 Spread", 20f, 1f..90f)
 
-    private val themeA by color("Theme A", Color4b(0xE9, 0xA8, 0xBC, 255))
-    private val themeB by color("Theme B", Color4b(0x6E, 0xC8, 0xF1, 255))
-    private val themeC by color("Theme C", Color4b(255, 255, 255, 128))
-    private val themeSeconds by float("Theme Cycle Sec", 3f, 0.5f..10f)
+    // —— GRADIENT 模式: 进度条左右两色 ——
+    private val gradientLeft by color("Gradient Left", Color4b(0xE9, 0xA8, 0xBC, 255))
+    private val gradientRight by color("Gradient Right", Color4b(0x6E, 0xC8, 0xF1, 255))
+
+    // —— TYPE 模式的 Info 色 ——
+    private val infoColor by color("Info Color", Color4b(0x33, 0x66, 0xFF, 255))
+
+    // ==================== Glow (对齐 ArrayList 写法, 默认值一致) ====================
+    private val glowEnabled by boolean("Glow", true)
+    private val glowRange by float("Glow Range", 18f, 0f..30f)
+    private val glowStrength by float("Glow Strength", 0.04f, 0.01f..1f)
+    private val glowDensity by int("Glow Density", 6, 1..12)
+    private val glowOffsetX by float("Glow Offset X", 0f, -16f..16f)
+    private val glowOffsetY by float("Glow Offset Y", 0f, -16f..16f)
 
     enum class Type { INFO, WARNING, ERROR }
 
@@ -222,29 +232,62 @@ object ModuleSolsticeNotification : ClientModule(
 
     private fun lerp(a: Float, b: Float, t: Float) = a + t * (b - a)
 
-    /** 主题色列表每帧缓存（避免每次取色都 listOf 分配） */
+    /** 主题色列表每帧缓存（避免每次取色都 listOf 分配） — 改为 Custom2 前N色 */
     private var themeColors = listOf(
         Color4b(0xE9, 0xA8, 0xBC, 255),
         Color4b(0x6E, 0xC8, 0xF1, 255),
-        Color4b(255, 255, 255, 128),
     )
 
-    private fun getThemedColor(index: Float, ms: Long = 0L): Color4b {
+    private fun refreshThemeColors() {
+        val count = custom2ColorCount.coerceIn(1, 7)
+        themeColors = buildList {
+            add(custom2Color1)
+            if (count >= 2) add(custom2Color2)
+            if (count >= 3) add(custom2Color3)
+            if (count >= 4) add(custom2Color4)
+            if (count >= 5) add(custom2Color5)
+            if (count >= 6) add(custom2Color6)
+            if (count >= 7) add(custom2Color7)
+        }
+    }
+
+    /**
+     * 【Custom2 自定义多色流水渐变】写法与 ModuleArrayList.custom2ThemedColor 完全一致:
+     * 相位 = time(秒) × 60° × C2 Speed + index × C2 Spread
+     * → 同一帧内不同通知处于不同相位, 整列在自定义颜色间如流水般滚动。
+     */
+    private fun custom2ThemedColor(index: Float, time: Float): Color4b {
         val colors = themeColors
-        val time = 10000f / themeSeconds.coerceAtLeast(0.01f)
-        val now = if (ms == 0L) System.currentTimeMillis() else ms
-        val angle = ((now + index.toLong()) % time.toLong()).toFloat()
-        val segT = time / colors.size
-        val seg = (angle / segT).toInt() % colors.size
-        val t = (angle / segT - (angle / segT).toInt()).coerceIn(0f, 1f)
-        val s = colors[seg]
-        val e = colors[(seg + 1) % colors.size]
+        if (colors.isEmpty()) return Color4b.WHITE
+        val angle = (time * 60f * custom2Speed + index * custom2Spread) % 360f
+        val segFloat = angle / 360f * colors.size
+        val seg = segFloat.toInt().coerceIn(0, colors.size - 1)
+        val t = (segFloat - seg).coerceIn(0f, 1f)
+        val next = (seg + 1) % colors.size
+        return lerpColor(colors[seg], colors[next], t)
+    }
+
+    private fun lerpColor(a: Color4b, b: Color4b, t: Float): Color4b {
+        val tt = t.coerceIn(0f, 1f)
         return Color4b(
-            lerp(s.r.toFloat(), e.r.toFloat(), t).toInt().coerceIn(0, 255),
-            lerp(s.g.toFloat(), e.g.toFloat(), t).toInt().coerceIn(0, 255),
-            lerp(s.b.toFloat(), e.b.toFloat(), t).toInt().coerceIn(0, 255),
-            lerp(s.a.toFloat(), e.a.toFloat(), t).toInt().coerceIn(0, 255),
+            (a.r + (b.r - a.r) * tt).roundToInt().coerceIn(0, 255),
+            (a.g + (b.g - a.g) * tt).roundToInt().coerceIn(0, 255),
+            (a.b + (b.b - a.b) * tt).roundToInt().coerceIn(0, 255),
+            (a.a + (b.a - a.a) * tt).roundToInt().coerceIn(0, 255),
         )
+    }
+
+    /** 按颜色模式取进度条主题色 (index = 通知堆叠位置, time = 秒) */
+    private fun themedColorFor(index: Float, time: Float, type: Type): Color4b {
+        return when (colorMode) {
+            NotifColorMode.CUSTOM2 -> custom2ThemedColor(index, time)
+            NotifColorMode.GRADIENT -> gradientLeft  // 渐变左色 (右色由渲染端采样)
+            NotifColorMode.TYPE -> when (type) {
+                Type.WARNING -> Color4b(255, 204, 0, 255)
+                Type.ERROR -> Color4b(255, 0, 0, 255)
+                Type.INFO -> custom2ThemedColor(index, time)
+            }
+        }
     }
 
     private fun textH() = mc.font.lineHeight * (fontSize / 9f)
@@ -315,94 +358,49 @@ object ModuleSolsticeNotification : ClientModule(
     }
 
     /**
-     * 外圈辉光：分层四边+外框矩形扩散（不用圆角 API，全平台稳定可见）。
-     * 每张卡片在显示期间都画满辉光。
+     * 【Glow 边缘发光】写法对齐 ModuleArrayList.drawGlowEdge:
+     * 分层四边+外框扩散, 参数与 ArrayList 默认值一致 (Range=18 / Strength=0.04 / Density=6)。
+     * 发光颜色跟随当前颜色模式的进度条主题色。
      */
     private fun drawGlow(
         ctx: net.minecraft.client.gui.GuiGraphicsExtractor,
         x1: Float, y1: Float, x2: Float, y2: Float,
-        base: Color4b, base2: Color4b, alphaMul: Float, gradient: Boolean,
+        base: Color4b, alphaMul: Float,
     ) {
-        if (!glow || alphaMul <= 0.02f) return
-        val layers = glowLayers.coerceIn(3, 24)
-        val maxR = (glowRadius * glowSpread).coerceAtLeast(4f)
-        val strength = glowStrength.coerceIn(0.05f, 1.5f)
-        val soft = glowSoftness.coerceIn(0.5f, 3f)
-        val aScale = glowAlpha.coerceIn(0.1f, 1.5f)
+        if (!glowEnabled || alphaMul <= 0.02f) return
+        val range = glowRange
+        if (range <= 0f) return
+        val strength = glowStrength.coerceIn(0.01f, 1f)
+        val density = glowDensity.coerceIn(1, 12)
+        val ox = glowOffsetX
+        val oy = glowOffsetY
 
-        var pulse = 1f
-        if (glowPulse) {
-            val t = (System.currentTimeMillis() % 100000L) / 1000.0
-            pulse = (0.82f + 0.18f * kotlin.math.sin(t * glowPulseSpeed).toFloat())
-        }
-
-        // 从外到内画，外层更淡
-        for (i in layers downTo 1) {
-            val u = i / layers.toFloat() // 1=最外
-            val e = maxR * u
-            // 更平缓的衰减，保证内圈也够亮
+        // 从外到内画，外层更淡 (对齐 ArrayList drawGlowEdge 的层循环)
+        for (i in density downTo 1) {
+            val u = i / density.toFloat()
+            val e = range * u
             val fall = (1f - u).coerceIn(0f, 1f)
             val fall2 = fall * fall * (3f - 2f * fall) // smoothstep
-            val softMul = (0.55f + 0.45f / soft).coerceIn(0.4f, 1.4f)
-            val a = (fall2 * softMul * strength * pulse * aScale * 255f * alphaMul)
-                .toInt()
-                .coerceIn(0, 230)
+            val a = (fall2 * strength * 255f * alphaMul).toInt().coerceIn(0, 200)
             if (a < 3) continue
-
-            val src = if (gradient) {
-                Color4b(
-                    lerp(base.r.toFloat(), base2.r.toFloat(), u).toInt().coerceIn(0, 255),
-                    lerp(base.g.toFloat(), base2.g.toFloat(), u).toInt().coerceIn(0, 255),
-                    lerp(base.b.toFloat(), base2.b.toFloat(), u).toInt().coerceIn(0, 255),
-                    255,
-                )
-            } else base
-
-            val col = Color4b(src.r, src.g, src.b, a)
-            // 整圈外框（比四边拼接更明显）
-            ctx.drawQuad(x1 - e, y1 - e, x2 + e, y1, col) // 上
-            ctx.drawQuad(x1 - e, y2, x2 + e, y2 + e, col) // 下
-            ctx.drawQuad(x1 - e, y1, x1, y2, col) // 左
-            ctx.drawQuad(x2, y1, x2 + e, y2, col) // 右
+            val col = Color4b(base.r, base.g, base.b, a)
+            // 四边扩散 + 位置偏移
+            ctx.drawQuad(x1 - e + ox, y1 - e + oy, x2 + e + ox, y1 + oy, col) // 上
+            ctx.drawQuad(x1 - e + ox, y2 + oy, x2 + e + ox, y2 + e + oy, col) // 下
+            ctx.drawQuad(x1 - e + ox, y1 + oy, x1 + ox, y2 + oy, col) // 左
+            ctx.drawQuad(x2 + ox, y1 + oy, x2 + e + ox, y2 + oy, col) // 右
         }
 
-        // 紧贴卡片的一圈实线，保证“有没有辉光”一眼能看出来
-        val rimA = (140f * strength * aScale * pulse * alphaMul).toInt().coerceIn(0, 200)
+        // 紧贴卡片的一圈实线 (对齐 ArrayList 的 rim 写法, 保证可见性)
+        val rimA = (140f * strength * 6f * alphaMul).toInt().coerceIn(0, 180)
         if (rimA > 2) {
             val rim = Color4b(base.r, base.g, base.b, rimA)
             val t = 1.5f
-            ctx.drawQuad(x1 - t, y1 - t, x2 + t, y1, rim)
-            ctx.drawQuad(x1 - t, y2, x2 + t, y2 + t, rim)
-            ctx.drawQuad(x1 - t, y1, x1, y2, rim)
-            ctx.drawQuad(x2, y1, x2 + t, y2, rim)
+            ctx.drawQuad(x1 - t + ox, y1 - t + oy, x2 + t + ox, y1 + oy, rim)
+            ctx.drawQuad(x1 - t + ox, y2 + oy, x2 + t + ox, y2 + t + oy, rim)
+            ctx.drawQuad(x1 - t + ox, y1 + oy, x1 + ox, y2 + oy, rim)
+            ctx.drawQuad(x2 + ox, y1 + oy, x2 + t + ox, y2 + oy, rim)
         }
-    }
-
-    /** u∈[0,1] → 自然彩虹色：红→紫（HSV 色相连续插值，非几个锚点色 RGB 拼接） */
-    private fun rainbowAt(u: Float): Color4b {
-        val h = u.coerceIn(0f, 1f) * 0.78f // 0=红 … 0.78≈紫
-        val s = 0.95f
-        val v = 1f
-        val hh = h * 6f
-        val i = hh.toInt().coerceIn(0, 5)
-        val f = hh - i
-        val p = v * (1f - s)
-        val q = v * (1f - f * s)
-        val t = v * (1f - (1f - f) * s)
-        val (r, g, b) = when (i) {
-            0 -> Triple(v, t, p)
-            1 -> Triple(q, v, p)
-            2 -> Triple(p, v, t)
-            3 -> Triple(p, q, v)
-            4 -> Triple(t, p, v)
-            else -> Triple(v, p, q)
-        }
-        return Color4b(
-            (r * 255f).roundToInt().coerceIn(0, 255),
-            (g * 255f).roundToInt().coerceIn(0, 255),
-            (b * 255f).roundToInt().coerceIn(0, 255),
-            255,
-        )
     }
 
     @Suppress("unused")
@@ -417,8 +415,8 @@ object ModuleSolsticeNotification : ClientModule(
         // 无通知时直接返回, 不做任何计算/绘制
         if (notifications.isEmpty()) return@handler
 
-        // 每帧刷新一次主题色缓存
-        themeColors = listOf(themeA, themeB, themeC)
+        // 每帧刷新一次 Custom2 主题色缓存 (前 N 色, 对齐 ArrayList 的 buildList 写法)
+        refreshThemeColors()
         val scaleF = fontSize / 11f
         val boxHP = textH() + 30f * scaleF
 
@@ -475,13 +473,9 @@ object ModuleSolsticeNotification : ClientModule(
             val boxTop = y - boxH
             val boxBottom = y - 10f
 
-            // 进度条主题色（Warning/Error 仍可区分类型）
-            var theme = getThemedColor(boxTop * 2f)
-            when (n.type) {
-                Type.WARNING -> theme = Color4b(255, 204, 0, 255)
-                Type.ERROR -> theme = Color4b(255, 0, 0, 255)
-                Type.INFO -> Unit
-            }
+            // 进度条主题色 (按颜色模式; Warning/Error 在 TYPE 模式下区分, 其他模式用模式色)
+            val timeSec = System.currentTimeMillis() / 1000f
+            val theme = themedColorFor(boxTop * 0.15f, timeSec, n.type)
             val aMul = n.slide
             val glowMul = if (n.isTimeUp) {
                 aMul.coerceIn(0f, 1f)
@@ -489,30 +483,20 @@ object ModuleSolsticeNotification : ClientModule(
                 max(aMul, 0.9f)
             }
             val cLeft = theme.alpha((220 * aMul).toInt().coerceIn(0, 255))
-            val cRight = getThemedColor(boxTop * 2f + boxW * 1.2f)
-                .alpha((200 * aMul).toInt().coerceIn(0, 255))
-            // 辉光严格跟随设置：CUSTOM/GRADIENT 永远用 Glow Color；
-            // THEME 用 Theme A/B 循环色（不受 Warning 黄/红覆盖）；
-            // 仅 TYPE 模式才按通知类型上色
-            val (g1, g2, gGrad) = when (glowColorMode) {
-                GlowColorMode.CUSTOM -> Triple(glowColor, glowColor, false)
-                GlowColorMode.GRADIENT -> Triple(glowColor, glowColor2, true)
-                GlowColorMode.THEME -> Triple(
-                    getThemedColor(boxTop * 2f),
-                    getThemedColor(boxTop * 2f + 40f),
-                    true,
-                )
-                GlowColorMode.TYPE -> Triple(
-                    when (n.type) {
-                        Type.WARNING -> Color4b(255, 204, 0, 255)
-                        Type.ERROR -> Color4b(255, 60, 60, 255)
-                        Type.INFO -> glowColor
-                    },
-                    glowColor2,
-                    false,
-                )
+            // 右端色: CUSTOM2 用相位偏移采样(流水效果), GRADIENT 用右色
+            val cRight = when (colorMode) {
+                NotifColorMode.CUSTOM2 -> custom2ThemedColor(boxTop * 0.15f + 40f, timeSec)
+                    .alpha((200 * aMul).toInt().coerceIn(0, 255))
+                NotifColorMode.GRADIENT -> gradientRight.alpha((200 * aMul).toInt().coerceIn(0, 255))
+                NotifColorMode.TYPE -> when (n.type) {
+                    Type.WARNING -> Color4b(255, 204, 0, 255)
+                    Type.ERROR -> Color4b(255, 0, 0, 255)
+                    Type.INFO -> custom2ThemedColor(boxTop * 0.15f + 40f, timeSec)
+                }.alpha((200 * aMul).toInt().coerceIn(0, 255))
             }
-            drawGlow(ctx, x, boxTop, x + boxW, boxBottom, g1, g2, glowMul, gGrad)
+
+            // 【Glow 对齐 ArrayList】发光颜色跟随进度条主题色 (不再单独设置 Glow Color)
+            drawGlow(ctx, x, boxTop, x + boxW, boxBottom, theme, glowMul)
 
             // 整卡大进度条：底色纯黑；左侧圆角、右侧直角
             val blackBg = Color4b(0, 0, 0, (240 * aMul).toInt().coerceIn(0, 255))
@@ -520,12 +504,16 @@ object ModuleSolsticeNotification : ClientModule(
 
             val fillW = boxW * percentDone
             if (fillW > 0.5f) {
-                when {
-                    progressRainbow -> drawProgressFill(
+                when (colorMode) {
+                    // Custom2: 进度条按横向位置采样流水色 (同帧多色流动)
+                    NotifColorMode.CUSTOM2 -> drawProgressFill(
                         ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul, 3f,
-                    ) { u -> rainbowAt(u) }
+                    ) { u ->
+                        custom2ThemedColor(u * 120f, timeSec)
+                    }
 
-                    colorGradient -> drawProgressFill(
+                    // Gradient: 左→右平滑渐变
+                    NotifColorMode.GRADIENT -> drawProgressFill(
                         ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul, 3f,
                     ) { u ->
                         val s = u * u * (3f - 2f * u)
@@ -536,9 +524,13 @@ object ModuleSolsticeNotification : ClientModule(
                         )
                     }
 
-                    else -> drawProgressFill(
-                        ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul, 1e5f,
-                    ) { cLeft }
+                    // By Type: 单色填充 (Warning黄/Error红/Info用Custom2流水)
+                    NotifColorMode.TYPE -> drawProgressFill(
+                        ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul,
+                        if (n.type == Type.INFO) 3f else 1e5f,
+                    ) { u ->
+                        if (n.type == Type.INFO) custom2ThemedColor(u * 120f, timeSec) else cLeft
+                    }
                 }
             }
 

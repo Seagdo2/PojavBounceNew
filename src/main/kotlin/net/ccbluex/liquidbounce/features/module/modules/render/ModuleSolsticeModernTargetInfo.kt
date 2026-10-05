@@ -42,11 +42,11 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 object ModuleSolsticeModernTargetInfo : ClientModule(
-    "SolsticeModernTargetInfo",
+    "TargetInfo",
     ModuleCategories.RENDER,
     aliases = listOf("RiseTargetInfo"),
 ) {
-
+init { enabled = true }
     private enum class BackgroundMode(override val tag: String) : Tagged {
         GLASS("Glass"), TINT("Tint"), SOLID("Solid"), CUSTOM("Custom")
     }
