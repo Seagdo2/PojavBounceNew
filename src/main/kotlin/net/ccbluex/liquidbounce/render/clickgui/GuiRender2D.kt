@@ -198,4 +198,89 @@ object GuiRender2D {
         }
         return if (lo <= 0) ellipsis else text.substring(0, lo) + ellipsis
     }
+
+    // ==================== 跑马灯 (Marquee) ====================
+    /** 跑马灯停顿时长(秒): 先在开头停 4 秒 */
+    const val MARQUEE_PAUSE_S = 4f
+    /** 跑马灯滚动时长(秒): 然后字符循环滚动 4 秒回到原位 */
+    const val MARQUEE_SCROLL_S = 4f
+    /** 跑马灯经过的时间(秒), 每帧由 NativePanel.render 更新 */
+    var marqueeTime = 0f
+    /** 暂停标志: NativePanel 滚动中 → true (玩家滚动GUI时跑马灯暂停) */
+    var marqueePaused = false
+    /** 上次 tick 的纳秒时间戳 (防同帧多行重复累加) */
+    private var lastMarqueeTickNs = 0L
+
+    /**
+     * 每帧由 NativePanel.render() 调用一次:
+     * - 玩家滚动GUI时 (paused=true) 跑马灯计时冻结
+     * - 停止滚动后恢复计时, 跑马灯从暂停处继续
+     */
+    fun tickMarquee(paused: Boolean) {
+        val now = System.nanoTime()
+        if (lastMarqueeTickNs != 0L && !paused) {
+            val dt = ((now - lastMarqueeTickNs) / 1e9f).coerceIn(0f, 0.1f)
+            marqueeTime += dt
+        }
+        lastMarqueeTickNs = now
+        marqueePaused = paused
+    }
+
+    /**
+     * 跑马灯文字渲染: 超长文字用电子屏式循环滚动代替省略号
+     * - 文字不超出 → 直接渲染 (调用方自行处理, 本函数只处理超出情况)
+     * - 4秒停顿(显示开头) → 4秒字符循环滚动(滚完回原位) → 如此往复
+     * - 滚动期间用 scissor 裁剪到可见区域, 文字从右边缘环绕进入 (两份拷贝)
+     * - 玩家滚动面板时计时冻结, 停止后从暂停处继续
+     *
+     * @param clipY    裁剪区域顶部 Y (通常 = 行顶部)
+     * @param clipH    裁剪区域高度 (通常 = 行高)
+     */
+    fun renderMarqueeText(
+        gfx: GuiGraphicsExtractor,
+        font: net.minecraft.client.gui.Font,
+        text: String,
+        textX: Int,
+        textY: Int,
+        maxWidth: Int,
+        clipY: Int,
+        clipH: Int,
+        color: Int,
+    ) {
+        if (maxWidth <= 0 || clipH <= 0) return
+        val textW = font.width(text)
+        if (textW <= maxWidth) {
+            // 不超出 → 直接渲染 (无 scissor 开销)
+            gfx.text(font, text, textX, textY, color, false)
+            return
+        }
+        val cycle = MARQUEE_PAUSE_S + MARQUEE_SCROLL_S
+        val phase = marqueeTime % cycle
+
+        // scissor 裁剪区域 (防闪退: 确保非零)
+        val sx0 = maxOf(textX, 0)
+        val sy0 = maxOf(clipY, 0)
+        val sx1 = textX + maxWidth
+        val sy1 = clipY + clipH
+        if (sx1 <= sx0 || sy1 <= sy0) return
+
+        gfx.enableScissor(sx0, sy0, sx1, sy1)
+
+        if (phase < MARQUEE_PAUSE_S) {
+            // 【停顿阶段】显示开头
+            gfx.text(font, text, textX, textY, color, false)
+        } else {
+            // 【滚动阶段】offset 从 0 → textW, 4秒内完成一圈
+            val t = (phase - MARQUEE_PAUSE_S) / MARQUEE_SCROLL_S
+            val offset = (t * textW).toInt()
+            // 拷贝1: 从 textX - offset 开始向左滑出
+            gfx.text(font, text, textX - offset, textY, color, false)
+            // 拷贝2: 紧跟其后从右侧环绕进入 (offset=textW 时拷贝2 恰好在 textX 原位)
+            if (offset > 0) {
+                gfx.text(font, text, textX - offset + textW, textY, color, false)
+            }
+        }
+
+        gfx.disableScissor()
+    }
 }
