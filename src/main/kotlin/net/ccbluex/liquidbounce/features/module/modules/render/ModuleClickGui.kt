@@ -36,7 +36,7 @@ object ModuleClickGui :
 
     override val running get() = true
 
-    val scale by float("Scale", 1f, 0.1f..1.3f).onChanged {
+    val scale by float("Scale", 0.9f, 0.1f..1.3f).onChanged {
         EventManager.callEvent(ClickGuiScaleChangeEvent(it))
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
@@ -45,7 +45,7 @@ object ModuleClickGui :
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
-    val glassMode by boolean("GlassMode", false).onChanged {
+    val glassMode by boolean("GlassMode", true).onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
@@ -67,7 +67,7 @@ object ModuleClickGui :
     /**
      * Per-panel width (NativePanel / initial grid read this live).
      */
-    val panelWidth by int("PanelWidth", 250, 120..500, "px").onChanged {
+    val panelWidth by int("PanelWidth", 170, 120..500, "px").onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
