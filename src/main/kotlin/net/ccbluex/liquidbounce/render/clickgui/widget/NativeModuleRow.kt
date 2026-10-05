@@ -41,37 +41,7 @@ class NativeModuleRow(val module: ClientModule) {
         private const val ARROW_ZONE = 28
         /** Expand animation easing factor (0..1, higher = faster). */
         private const val EXPAND_EASE = 0.20f
-
-        // ==================== 跑马灯 (Marquee) ====================
-        /** 跑马灯停顿时长(秒): 先在开头停 4 秒 */
-        const val MARQUEE_PAUSE_S = 4f
-        /** 跑马灯滚动时长(秒): 然后字符循环滚动 4 秒回到原位 */
-        const val MARQUEE_SCROLL_S = 4f
-        /** 跑马灯经过的时间(秒), 每帧由 NativePanel.tickMarquee 更新 */
-        @JvmStatic
-        var marqueeTime = 0f
-        /** 暂停标志: NativePanel 滚动中 → true (玩家滚动GUI时跑马灯暂停) */
-        @JvmStatic
-        var marqueePaused = false
-        /** 上次 tick 的纳秒时间戳 (防同帧多行重复累加) */
-        @JvmStatic
-        private var lastMarqueeTickNs = 0L
-
-        /**
-         * 每帧由 NativePanel.render() 调用一次:
-         * - 玩家滚动GUI时 (paused=true) 跑马灯计时冻结
-         * - 停止滚动后恢复计时, 跑马灯从暂停处继续
-         */
-        @JvmStatic
-        fun tickMarquee(paused: Boolean) {
-            val now = System.nanoTime()
-            if (lastMarqueeTickNs != 0L && !paused) {
-                val dt = ((now - lastMarqueeTickNs) / 1e9f).coerceIn(0f, 0.1f)
-                marqueeTime += dt
-            }
-            lastMarqueeTickNs = now
-            marqueePaused = paused
-        }
+        // 跑马灯状态已移至 GuiRender2D (共享给 SettingRows 使用)
     }
 
     var expanded: Boolean = false
@@ -175,7 +145,7 @@ class NativeModuleRow(val module: ClientModule) {
             gfx.text(font, module.name, textX, textY, textColor, false)
         } else {
             // 【跑马灯】超出范围 → 电子屏式循环滚动 (4秒停 + 4秒滚, 如此往复)
-            renderMarqueeText(gfx, font, module.name, textX, textY, maxNameWidth, y, textColor)
+            GuiRender2D.renderMarqueeText(gfx, font, module.name, textX, textY, maxNameWidth, y, ROW_HEIGHT, textColor)
         }
 
         if (hasSettings) {
@@ -274,57 +244,7 @@ class NativeModuleRow(val module: ClientModule) {
     fun charTyped(chr: Char): Boolean = settingRows?.any { it.isFocused() && it.charTyped(chr) } ?: false
     fun keyPressed(keyCode: Int): Boolean = settingRows?.any { it.isFocused() && it.keyPressed(keyCode) } ?: false
 
-    // ==================== 跑马灯渲染 (电子屏式字符循环滚动) ====================
-
-    /**
-     * 超长文字的跑马灯渲染:
-     * - 停 4 秒: 显示开头 (文字起点静止)
-     * - 滚 4 秒: 字符循环滚动, 文字向左滑动, 尾部从右侧循环进入 (两份拷贝实现环绕)
-     * - 滚动完一整圈 (offset = textW) 回到原位, 循环 停4→滚4 如此往复
-     * - 玩家滚动面板时 (marqueePaused=true) 计时冻结, 停止后从暂停处继续
-     * - 使用 scissor 裁剪到可见区域, 文字绝不超出面板边界
-     */
-    private fun renderMarqueeText(
-        gfx: GuiGraphicsExtractor,
-        font: net.minecraft.client.gui.Font,
-        text: String,
-        textX: Int,
-        textY: Int,
-        maxWidth: Int,
-        rowY: Int,
-        color: Int,
-    ) {
-        if (maxWidth <= 0) return
-        val textW = font.width(text)
-        val cycle = MARQUEE_PAUSE_S + MARQUEE_SCROLL_S
-        val phase = marqueeTime % cycle
-
-        // scissor 裁剪区域: 文字可见范围 (防闪退: 确保非零)
-        val sx0 = maxOf(textX, 0)
-        val sy0 = maxOf(rowY, 0)
-        val sx1 = textX + maxWidth
-        val sy1 = rowY + ROW_HEIGHT
-        if (sx1 <= sx0 || sy1 <= sy0) return
-
-        gfx.enableScissor(sx0, sy0, sx1, sy1)
-
-        if (phase < MARQUEE_PAUSE_S) {
-            // 【停顿阶段】显示开头
-            gfx.text(font, text, textX, textY, color, false)
-        } else {
-            // 【滚动阶段】offset 从 0 → textW, 4秒内完成一圈
-            val t = (phase - MARQUEE_PAUSE_S) / MARQUEE_SCROLL_S
-            val offset = (t * textW).toInt()
-            // 拷贝1: 从 textX - offset 开始向左滑出
-            gfx.text(font, text, textX - offset, textY, color, false)
-            // 拷贝2: 紧跟其后从右侧进入 (环绕效果, offset=textW 时拷贝2 恰好在 textX 原位)
-            if (offset > 0) {
-                gfx.text(font, text, textX - offset + textW, textY, color, false)
-            }
-        }
-
-        gfx.disableScissor()
-    }
+    // 跑马灯渲染已移至 GuiRender2D.renderMarqueeText (共享给 SettingRows 使用)
 
     private fun toggleExpanded() {
         expanded = !expanded

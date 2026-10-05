@@ -125,9 +125,9 @@ class NativePanel(
      * covers the whole screen regardless of Scale.
      */
     fun render(gfx: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, uiScale: Float, logicalW: Int, logicalH: Int) {
-        // 【跑马灯驱动】每帧更新一次: 滚动中暂停计时, 停止后恢复
+        // 【跑马灯驱动】每帧更新一次: 滚动中暂停计时, 停止后恢复 (GuiRender2D 共享状态)
         val isScrolling = abs(scrollTarget - scrollAnimated) > 0.5f
-        NativeModuleRow.tickMarquee(isScrolling)
+        GuiRender2D.tickMarquee(isScrolling)
         // Every row advances its expand animation once per frame, before any
         // layout runs, so the rows below an expanding row move in step with it.
         for (row in rows) row.tickExpand()
