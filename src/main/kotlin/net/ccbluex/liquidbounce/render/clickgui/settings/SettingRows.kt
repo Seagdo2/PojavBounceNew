@@ -665,6 +665,9 @@ object SettingRenderer {
     private fun rowFor(value: Value<*>, indent: Int): SettingRow {
         val current = value.get()
         return when {
+            // 【FIX】ModeValueGroup → 专用 ModeGroupRow (旧代码落入 ValueGroup→SectionHeaderRow 导致模式列表空白)
+            value is net.ccbluex.liquidbounce.config.types.group.ModeValueGroup<*> ->
+                ModeGroupRow(indent, value)
             value is ChoiceListValue<*> -> ChooseRow(indent, value as ChoiceListValue<Tagged>)
             value is MultiChoiceListValue<*> -> MultiChooseRow(indent, value as MultiChoiceListValue<Tagged>)
             value is RangedValue<*> && (current is Number || current is ClosedRange<*>) ->
@@ -680,6 +683,76 @@ object SettingRenderer {
             value is ValueGroup -> SectionHeaderRow(indent, value.name)
             else -> UnsupportedRow(indent, value)
         }
+    }
+}
+
+// --------------------------------------------------------------- MODE_GROUP
+
+/**
+ * 【FIX】ModeValueGroup 渲染行: 显示组名 + 所有模式列表 + 点击切换。
+ *
+ * 结构 (对齐 Web 版 ConfigurableSetting.svelte 的模式选择器):
+ * ```
+ * ▸ Mode              ← 组名 (ACCENT 色)
+ *   ○ Vanilla         ← 模式1 (非激活: 白色圆圈)
+ *   ● Creative        ← 模式2 (激活: ACCENT 圆圈 + 高亮文字)
+ *   ○ Jetpack         ← 模式3
+ * ```
+ *
+ * 高度 = (1 + modes.size) × 17, 动态计算。
+ * 点击模式名 → setByString(mode.name) 切换到该模式。
+ */
+class ModeGroupRow(
+    override val indent: Int,
+    private val group: net.ccbluex.liquidbounce.config.types.group.ModeValueGroup<*>,
+) : SettingRow {
+
+    private val modes: List<net.ccbluex.liquidbounce.config.types.group.Mode> get() = group.modes.toList()
+    private val activeMode get() = group.activeMode
+
+    override fun height(width: Int): Int = 17 * (1 + modes.size)
+
+    override fun render(gfx: GuiGraphicsExtractor, x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int) {
+        val font = net.minecraft.client.Minecraft.getInstance().font
+        val left = x + ROW_PAD + indent
+
+        // 组名行 (ACCENT 色, 带向下箭头)
+        gfx.text(font, "▾ ${group.name}", left, y + 4, ClickGuiPalette.MODULE_ENABLED, false)
+
+        // 模式列表 (缩进+8px)
+        var modeY = y + 17
+        for (mode in modes) {
+            val isActive = mode === activeMode
+            val color = if (isActive) ClickGuiPalette.MODULE_ENABLED else ClickGuiPalette.TEXT_DIMMED
+            // 圆形指示 (●/○, 对齐 NativePanel 的模块行指示)
+            val indicator = if (isActive) "●" else "○"
+            val display = "$indicator ${mode.name}"
+            // 【翻译】模式名翻译
+            val translated = net.ccbluex.liquidbounce.features.module.modules.misc.ModuleTranslation.t(mode.name)
+            gfx.text(font, "$indicator $translated", left + 8, modeY + 4, color, false)
+            modeY += 17
+        }
+    }
+
+    override fun mouseClicked(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
+        // MC 26.3 SDL: MOUSE_BUTTON_LEFT = 1 (InputConstants.java:159)
+        if (button != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) return false
+        val left = x + ROW_PAD + indent
+        if (mouseX < left || mouseX > x + width - ROW_PAD) return false
+
+        // 检查是否点击了某个模式行
+        var modeY = y + 17
+        for (mode in modes) {
+            if (mouseY >= modeY && mouseY <= modeY + 17) {
+                try {
+                    group.setByString(mode.name)
+                } catch (_: Exception) {
+                }
+                return true
+            }
+            modeY += 17
+        }
+        return false
     }
 }
 
