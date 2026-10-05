@@ -34,14 +34,14 @@ object ClickGuiPalette {
 
     // ---- base-N: black at N% alpha (the whole clickgui is built from
     // layering these over the 3D world, there is no opaque backdrop) ----
-    const val BASE_30: Int = 0x4C000000
-    const val BASE_36: Int = 0x5C000000
-    const val BASE_50: Int = 0x80000000.toInt()
-    const val BASE_60: Int = 0x99000000.toInt()
-    const val BASE_70: Int = 0xB2000000.toInt()
-    const val BASE_80: Int = 0xCC000000.toInt()
-    const val BASE_85: Int = 0xD9000000.toInt()
-    const val BASE_90: Int = 0xE6000000.toInt()
+    const val BASE_30: Int = 0x1E000000
+    const val BASE_36: Int = 0x24000000
+    const val BASE_50: Int = 0x2D000000
+    const val BASE_60: Int = 0x38000000
+    const val BASE_70: Int = 0x42000000
+    const val BASE_80: Int = 0x4B000000
+    const val BASE_85: Int = 0x51000000
+    const val BASE_90: Int = 0x5A000000
 
     // ---- panel ---------------------------------------------------------
     const val PANEL_HEADER_BG: Int = BASE_90

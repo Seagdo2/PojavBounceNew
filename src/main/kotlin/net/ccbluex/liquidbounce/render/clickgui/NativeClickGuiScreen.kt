@@ -204,13 +204,31 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
     }
 
     override fun charTyped(event: CharacterEvent): Boolean {
-        val chr = event.codepoint.toChar()
+        // 【FIX】直接用 codepoint 转字符, 兼容中文/Unicode
+        val cp = event.codepoint
+        val chr = if (cp in 0..0xFFFF) cp.toChar() else '?'
         if (searchBar.charTyped(chr)) return true
         if (panels.any { it.charTyped(chr) }) return true
         return super.charTyped(event)
     }
 
+    /**
+     * 【FIX】Android IME 支持: 输入法在提交前发送 preedit (组合文本) 而非 textInput。
+     * MC 26.3 PreeditEvent: (String fullText, int caretPosition, List<String> blocks, int focusedBlock)
+     * 我们取 fullText 转发给搜索栏。
+     */
+    override fun preeditUpdated(event: net.minecraft.client.input.PreeditEvent?): Boolean {
+        if (event == null) return false
+        val text = try { event.fullText() } catch (_: Throwable) { null } ?: return false
+        if (text.isNotEmpty()) {
+            searchBar.preeditUpdated(text)
+            return true
+        }
+        return false
+    }
+
     override fun keyPressed(event: KeyEvent): Boolean {
+        // 【FIX】MC 26.3 KeyEvent.key = SDL scancode (不是 GLFW keycode)
         val keyCode = event.key
         if (searchBar.keyPressed(keyCode)) return true
         if (panels.any { it.keyPressed(keyCode) }) return true
