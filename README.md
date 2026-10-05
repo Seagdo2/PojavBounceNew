@@ -38,8 +38,8 @@
 | 贡献者 | 贡献占比 | 角色 |
 |--------|---------|------|
 | **Cleverpeople** | 50% | Rubbishy-LB 原作者 提供部分视觉模块|
-| **Seagdo** (Bilibili) | 40% | Android 适配 · 功能移植 · 项目维护 |
-| **Geda6** | 10% | 功能测试 · Bug 修复 |
+| **Seagdo** (Bilibili) | 45% | Android 适配 · 功能移植 · 项目维护 |
+| **Geda6** | 5% | 功能测试 · Bug 修复 |
 
 > 开发工具：DeepSeekV4Pro,GLM-5.2等 AI 辅助编程
 
