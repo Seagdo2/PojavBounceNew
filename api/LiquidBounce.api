@@ -942,28 +942,23 @@ public final class net/ccbluex/liquidbounce/features/module/modules/player/autos
 
 public final class net/ccbluex/liquidbounce/features/module/modules/render/ModuleClickGui : net/ccbluex/liquidbounce/features/module/ClientModule {
 	public static final field INSTANCE Lnet/ccbluex/liquidbounce/features/module/modules/render/ModuleClickGui;
-	public final fun getActiveTextColor ()I
-	public final fun getActiveTextColorB ()I
-	public final fun getActiveTextColorG ()I
-	public final fun getActiveTextColorR ()I
-	public final fun getBgAlpha ()F
-	public final fun getBgAlphaFloat ()F
-	public final fun getBgColor ()I
+	public final fun getAccentColor ()I
+	public final fun getBgAlpha ()I
 	public final fun getBgColorB ()I
 	public final fun getBgColorG ()I
 	public final fun getBgColorR ()I
-	public final fun getGuiScale ()F
+	public final fun getFontSize ()F
+	public final fun getGlassMode ()Z
+	public final fun getPanelHeight ()I
+	public final fun getPanelMaxHeight ()I
+	public final fun getPanelWidth ()I
 	public fun getRunning ()Z
 	public final fun getScale ()F
-	public final fun getTextColor ()I
-	public final fun getTextColorB ()I
-	public final fun getTextColorG ()I
-	public final fun getTextColorR ()I
+	public final fun getSearchBarAutoFocus ()Z
 	public final fun invalidate ()V
 	public final fun isInSearchBar ()Z
 	public fun onEnabled ()V
 	public final fun sync ()V
-	public final fun updateStandaloneScreen ()Z
 }
 
 public final class net/ccbluex/liquidbounce/integration/backend/BrowserAccelerationFlags {
