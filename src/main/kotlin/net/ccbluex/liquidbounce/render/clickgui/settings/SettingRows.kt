@@ -59,12 +59,14 @@ private fun labelAndControlBounds(x: Int, width: Int, indent: Int): Pair<IntRang
     return (left..(left + labelWidth)) to (controlLeft..controlRight)
 }
 
+/**
+ * 设置行文字标签渲染 — 超长文字自动跑马灯滚动 (对齐 NativeModuleRow 的跑马灯写法):
+ * 不超出 → 直接渲染; 超出 → GuiRender2D.renderMarqueeText (4秒停+4秒滚循环)
+ */
 private fun drawLabel(gfx: GuiGraphicsExtractor, text: String, x: Int, y: Int, maxWidth: Int, dimmed: Boolean = true) {
-    val clipped = GuiRender2D.ellipsize(gfx, text, maxWidth)
-    gfx.text(
-        net.minecraft.client.Minecraft.getInstance().font,
-        clipped, x, y + 4, if (dimmed) ClickGuiPalette.TEXT_DIMMED else ClickGuiPalette.TEXT, false
-    )
+    val font = net.minecraft.client.Minecraft.getInstance().font
+    val color = if (dimmed) ClickGuiPalette.TEXT_DIMMED else ClickGuiPalette.TEXT
+    GuiRender2D.renderMarqueeText(gfx, font, text, x, y + 4, maxWidth, y, 17, color)
 }
 
 // --------------------------------------------------------------- BOOLEAN
@@ -232,8 +234,9 @@ class ChooseRow(override val indent: Int, private val value: ChoiceListValue<Tag
 
         GuiRender2D.fillRoundedRect(gfx, control.first, y + 2, control.last - control.first, height(width) - 4, 4, ClickGuiPalette.INPUT_BG)
         GuiRender2D.strokeRoundedRect(gfx, control.first, y + 2, control.last - control.first, height(width) - 4, 4, 1, ClickGuiPalette.DROPDOWN_BORDER)
-        val text = GuiRender2D.ellipsize(gfx, value.get().tag, control.last - control.first - 8)
-        gfx.text(net.minecraft.client.Minecraft.getInstance().font, text, control.first + 6, y + 4, ClickGuiPalette.TEXT, false)
+        val text = value.get().tag
+        val font = net.minecraft.client.Minecraft.getInstance().font
+        GuiRender2D.renderMarqueeText(gfx, font, text, control.first + 6, y + 4, control.last - control.first - 8, y, height(width), ClickGuiPalette.TEXT)
     }
 
     override fun mouseClicked(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
@@ -346,7 +349,7 @@ class TextRow(override val indent: Int, private val value: Value<String>) : Sett
         val border = if (focused) ClickGuiPalette.INPUT_BORDER else ClickGuiPalette.withAlpha(ClickGuiPalette.INPUT_BORDER, 90)
         GuiRender2D.strokeRoundedRect(gfx, control.first, y + 2, w, height(width) - 4, 4, 1, border)
         val shown = if (focused) "$buffer\u00A77_" else buffer
-        gfx.text(net.minecraft.client.Minecraft.getInstance().font, GuiRender2D.ellipsize(gfx, shown, w - 8), control.first + 6, y + 4, ClickGuiPalette.TEXT, false)
+        GuiRender2D.renderMarqueeText(gfx, net.minecraft.client.Minecraft.getInstance().font, shown, control.first + 6, y + 4, w - 8, y, height(width), ClickGuiPalette.TEXT)
     }
 
     override fun mouseClicked(x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int, button: Int): Boolean {
@@ -600,7 +603,7 @@ class BindRow(override val indent: Int, private val value: Value<Any>, private v
         GuiRender2D.fillRoundedRect(gfx, control.first, y + 2, w, height(width) - 4, 4, bg)
         GuiRender2D.strokeRoundedRect(gfx, control.first, y + 2, w, height(width) - 4, 4, 1, ClickGuiPalette.INPUT_BORDER)
         val text = if (listening) "..." else keyName(value.get())
-        gfx.text(net.minecraft.client.Minecraft.getInstance().font, GuiRender2D.ellipsize(gfx, text, w - 8), control.first + 6, y + 4, ClickGuiPalette.TEXT, false)
+        GuiRender2D.renderMarqueeText(gfx, net.minecraft.client.Minecraft.getInstance().font, text, control.first + 6, y + 4, w - 8, y, height(width), ClickGuiPalette.TEXT)
     }
 
     override fun isFocused() = listening
@@ -686,7 +689,7 @@ class SectionHeaderRow(override val indent: Int, private val label: String) : Se
     override fun height(width: Int): Int = 18
     override fun render(gfx: GuiGraphicsExtractor, x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int) {
         val left = x + ROW_PAD + indent
-        gfx.text(net.minecraft.client.Minecraft.getInstance().font, GuiRender2D.ellipsize(gfx, label, width - ROW_PAD * 2 - indent), left, y + 4, ClickGuiPalette.MODULE_ENABLED, false)
+        GuiRender2D.renderMarqueeText(gfx, net.minecraft.client.Minecraft.getInstance().font, label, left, y + 4, width - ROW_PAD * 2 - indent, y, height(width), ClickGuiPalette.MODULE_ENABLED)
         GuiRender2D.line(gfx, left, y + 15, x + width - ROW_PAD, y + 15, 1, ClickGuiPalette.DIVIDER)
     }
 }
