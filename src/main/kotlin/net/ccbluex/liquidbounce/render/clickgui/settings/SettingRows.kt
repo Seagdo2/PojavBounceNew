@@ -60,13 +60,14 @@ private fun labelAndControlBounds(x: Int, width: Int, indent: Int): Pair<IntRang
 }
 
 /**
- * 设置行文字标签渲染 — 超长文字自动跑马灯滚动 (对齐 NativeModuleRow 的跑马灯写法):
- * 不超出 → 直接渲染; 超出 → GuiRender2D.renderMarqueeText (4秒停+4秒滚循环)
+ * 设置行文字标签渲染 — 超长文字自动跑马灯滚动 + 翻译模块中文化
  */
 private fun drawLabel(gfx: GuiGraphicsExtractor, text: String, x: Int, y: Int, maxWidth: Int, dimmed: Boolean = true) {
     val font = net.minecraft.client.Minecraft.getInstance().font
     val color = if (dimmed) ClickGuiPalette.TEXT_DIMMED else ClickGuiPalette.TEXT
-    GuiRender2D.renderMarqueeText(gfx, font, text, x, y + 4, maxWidth, y, 17, color)
+    // 【翻译】显示名用翻译名
+    val display = net.ccbluex.liquidbounce.features.module.modules.misc.ModuleTranslation.t(text)
+    GuiRender2D.renderMarqueeText(gfx, font, display, x, y + 4, maxWidth, y, 17, color)
 }
 
 // --------------------------------------------------------------- BOOLEAN
