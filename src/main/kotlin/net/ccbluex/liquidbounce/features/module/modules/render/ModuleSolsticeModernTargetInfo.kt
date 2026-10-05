@@ -52,8 +52,8 @@ init { enabled = true }
     }
 
     // —— 布局 ——
-    private val targetInfoX by int("Position X", 40, 0..2000)
-    private val targetInfoY by int("Position Y", 40, 0..1200)
+    private val targetInfoX by int("Position X", 500, 0..2000)
+    private val targetInfoY by int("Position Y", 266, 0..1200)
     private val uiScale by float("UI Scale", 1f, 0.5f..2f)
     private val fontSize by int("Font Size", 11, 8..20)
 
@@ -65,12 +65,12 @@ init { enabled = true }
 
     // —— 背景 / 边框 ——
     private val backgroundMode by enumChoice("Background Mode", BackgroundMode.CUSTOM)
-    private val backgroundColor by color("Background Color", Color4b(18, 18, 24, 200))
-    private val backgroundColor2 by color("Background Color 2", Color4b(28, 28, 36, 200))
+    private val backgroundColor by color("Background Color", Color4b(18, 18, 24, 80))
+    private val backgroundColor2 by color("Background Color 2", Color4b(28, 28, 36, 0))
     private val backgroundShade by color("Bar Shade", Color4b(40, 40, 48, 255))
     private val radius by int("Radius", 8, 0..20)
 
-    private val border by boolean("Border", true)
+    private val border by boolean("Border", false)
     private val borderColor by color("Border Color", Color4b(0, 0, 0, 160))
     private val borderWidth by float("Border Width", 1.2f, 0.5f..4f)
 

@@ -34,7 +34,7 @@ object ModuleDynamicIsland : ClientModule(
     ModuleCategories.RENDER,
     aliases = listOf("DynamicIslandHUD", "Island"),
 ) {
-
+init { enabled = true }
     /* ============================= 可调节 ============================= */
 
     private val offsetX by float("Offset X", 0f, -400f..400f)
@@ -49,8 +49,8 @@ object ModuleDynamicIsland : ClientModule(
     private val alertHeight by float("Alert Height", 58f, 40f..100f)
     private val topPad by float("Top Padding", 10f, 0f..40f)
 
-    private val bgColor by color("Background", Color4b(18, 18, 22, 230))
-    private val bgHighlight by color("Highlight", Color4b(40, 40, 48, 90))
+    private val bgColor by color("Background", Color4b(18, 18, 22, 80))
+    private val bgHighlight by color("Highlight", Color4b(40, 40, 48, 0))
     private val textPrimary by color("Text Primary", Color4b(255, 255, 255, 240))
     private val textSecondary by color("Text Secondary", Color4b(180, 180, 190, 200))
     private val separatorCol by color("Separator", Color4b(120, 120, 130, 160))
@@ -68,14 +68,14 @@ object ModuleDynamicIsland : ClientModule(
     private val showTime by boolean("Show Time", true)
     private val showCoords by boolean("Show Coords", false)
     private val showNotifications by boolean("Notifications", true)
-    private val showLowHealth by boolean("Low Health Alert", true)
+    private val showLowHealth by boolean("Low Health Alert", false)
     private val lowHealthThreshold by float("Low Health %", 0.35f, 0.1f..0.7f)
     private val showItemUse by boolean("Item Use Status", true)
     private val showBlockCount by boolean("Block Count", true)
     private val showTabList by boolean("Tab List Expand", true)
     private val hideInContainer by boolean("Hide In Container", true)
     private val dropShadow by boolean("Drop Shadow", true)
-    private val notifyDurationMs by int("Notify Duration Ms", 4000, 1000..10000)
+    private val notifyDurationMs by int("Notify Duration Ms", 1500, 1000..10000)
 
     /* ============================= 常量（对齐原版） ============================= */
 

@@ -73,35 +73,25 @@ object ModuleSolsticeNotification : ClientModule(
     private val defaultDuration by float("Default Duration", 3f, 1f..15f)
     private val cornerRadius by float("Corner Radius", 5f, 0f..16f)
 
-    // ==================== 颜色模式 (对齐 ArrayList Custom2 写法) ====================
+    // ==================== 颜色模式 ====================
     private enum class NotifColorMode(override val tag: String) : Tagged {
-        /** Custom2: 自定义多色流水渐变 (1~7色, 仿 RAINBOW_TEXT 同帧多色流动) */
-        CUSTOM2("Custom2"),
+        /** Custom: 开启/关闭分别用自定义色 (调色板可选), 便于一眼分辨 */
+        CUSTOM("Custom"),
         /** Gradient: 进度条左→右两色渐变 */
         GRADIENT("Gradient"),
-        /** By Type: Warning黄 / Error红 / Info用 Custom2 */
-        TYPE("By Type"),
+        /** Random: 每条通知随机颜色 (创建时生成, 不闪烁) */
+        RANDOM("Random"),
     }
-    private val colorMode by enumChoice("Color Mode", NotifColorMode.CUSTOM2)
+    private val colorMode by enumChoice("Color Mode", NotifColorMode.CUSTOM)
 
-    // —— Custom2 自定义多色流水渐变 (写法与 ModuleArrayList 完全一致) ——
-    private val custom2ColorCount by int("C2 Color Count", 2, 1..7)
-    private val custom2Color1 by color("C2 Color 1", Color4b(0x99, 0x33, 0xFF)) // 紫
-    private val custom2Color2 by color("C2 Color 2", Color4b(0x33, 0x66, 0xFF)) // 蓝
-    private val custom2Color3 by color("C2 Color 3", Color4b(0x33, 0xFF, 0x66)) // 绿
-    private val custom2Color4 by color("C2 Color 4", Color4b(0xFF, 0xFF, 0x33)) // 黄
-    private val custom2Color5 by color("C2 Color 5", Color4b(0xFF, 0x99, 0x33)) // 橙
-    private val custom2Color6 by color("C2 Color 6", Color4b(0xFF, 0x33, 0x99)) // 玫红
-    private val custom2Color7 by color("C2 Color 7", Color4b(0xFF, 0x33, 0x33)) // 红
-    private val custom2Speed by float("C2 Speed", 6f, 0.1f..20f)
-    private val custom2Spread by float("C2 Spread", 20f, 1f..90f)
+    // —— Custom 模式: 开启/关闭两色 ——
+    private val customEnabledColor by color("Enabled Color", Color4b(0x22, 0x44, 0xCC, 255))   // 深蓝
+    private val customDisabledColor by color("Disabled Color", Color4b(0x99, 0x33, 0xFF, 255)) // 紫
+    private val customDefaultColor by color("Default Color", Color4b(0x33, 0x66, 0xFF, 255)) // 非开关通知(信息提示等)
 
     // —— GRADIENT 模式: 进度条左右两色 ——
     private val gradientLeft by color("Gradient Left", Color4b(0xE9, 0xA8, 0xBC, 255))
     private val gradientRight by color("Gradient Right", Color4b(0x6E, 0xC8, 0xF1, 255))
-
-    // —— TYPE 模式的 Info 色 ——
-    private val infoColor by color("Info Color", Color4b(0x33, 0x66, 0xFF, 255))
 
     // ==================== Glow (对齐 ArrayList 写法, 默认值一致) ====================
     private val glowEnabled by boolean("Glow", true)
@@ -117,6 +107,10 @@ object ModuleSolsticeNotification : ClientModule(
         val message: String,
         val type: Type = Type.INFO,
         val duration: Float = 3f,
+        /** 开关状态: null=非开关通知, true=开启模块, false=关闭模块 (Custom 模式分色用) */
+        val toggleState: Boolean? = null,
+        /** Random 模式: 创建时生成的随机色 (固定, 不闪烁) */
+        val randomColor: Color4b = Color4b.WHITE,
     ) {
         var timeShown = 0f
         /** 0→1 入场，关闭时 1→0（仅水平滑出，不带动其他通知乱跳）
@@ -148,8 +142,14 @@ object ModuleSolsticeNotification : ClientModule(
         }
     }
 
-    fun add(message: String, type: Type = Type.INFO, duration: Float = defaultDuration) {
-        notifications.add(Notification(message, type, duration))
+    /** 随机颜色 (Random 模式): 随机 HSB 色相, 90% 饱和度, 100% 亮度 */
+    private fun randomNotifColor(): Color4b {
+        val hue = kotlin.random.Random.nextFloat()
+        return Color4b.ofHSB(hue, 0.9f, 1f)
+    }
+
+    fun add(message: String, type: Type = Type.INFO, duration: Float = defaultDuration, toggleState: Boolean? = null) {
+        notifications.add(Notification(message, type, duration, toggleState, randomNotifColor()))
         trimToLimit()
     }
 
@@ -177,7 +177,7 @@ object ModuleSolsticeNotification : ClientModule(
 
     fun notifyToggle(moduleName: String, enabled: Boolean) {
         if (!showOnToggle) return
-        add("$moduleName was ${if (enabled) "enabled" else "disabled"}", Type.INFO, defaultDuration)
+        add("$moduleName was ${if (enabled) "enabled" else "disabled"}", Type.INFO, defaultDuration, enabled)
     }
 
     fun notifyJoin(address: String) {
@@ -201,6 +201,13 @@ object ModuleSolsticeNotification : ClientModule(
     @Suppress("unused")
     private val notifEventHandler = handler<NotificationEvent> { e ->
         if (!enabled) return@handler
+        // 【FIX】跳过模块开关的内置通知 (ENABLED/DISABLED 来自 ClientModule.onToggled
+        // 的 notification() 调用, 会显示翻译后的中文"已启用/已禁用"), 只由 toggleHandler
+        // 处理开关 → 只显示一行英文 "ModuleName was enabled/disabled", 不再出现两行
+        if (e.severity == NotificationEvent.Severity.ENABLED ||
+            e.severity == NotificationEvent.Severity.DISABLED) {
+            return@handler
+        }
         val type = when (e.severity) {
             NotificationEvent.Severity.ERROR -> Type.ERROR
             NotificationEvent.Severity.ENABLED, NotificationEvent.Severity.SUCCESS -> Type.INFO
@@ -233,40 +240,6 @@ object ModuleSolsticeNotification : ClientModule(
     private fun lerp(a: Float, b: Float, t: Float) = a + t * (b - a)
 
     /** 主题色列表每帧缓存（避免每次取色都 listOf 分配） — 改为 Custom2 前N色 */
-    private var themeColors = listOf(
-        Color4b(0xE9, 0xA8, 0xBC, 255),
-        Color4b(0x6E, 0xC8, 0xF1, 255),
-    )
-
-    private fun refreshThemeColors() {
-        val count = custom2ColorCount.coerceIn(1, 7)
-        themeColors = buildList {
-            add(custom2Color1)
-            if (count >= 2) add(custom2Color2)
-            if (count >= 3) add(custom2Color3)
-            if (count >= 4) add(custom2Color4)
-            if (count >= 5) add(custom2Color5)
-            if (count >= 6) add(custom2Color6)
-            if (count >= 7) add(custom2Color7)
-        }
-    }
-
-    /**
-     * 【Custom2 自定义多色流水渐变】写法与 ModuleArrayList.custom2ThemedColor 完全一致:
-     * 相位 = time(秒) × 60° × C2 Speed + index × C2 Spread
-     * → 同一帧内不同通知处于不同相位, 整列在自定义颜色间如流水般滚动。
-     */
-    private fun custom2ThemedColor(index: Float, time: Float): Color4b {
-        val colors = themeColors
-        if (colors.isEmpty()) return Color4b.WHITE
-        val angle = (time * 60f * custom2Speed + index * custom2Spread) % 360f
-        val segFloat = angle / 360f * colors.size
-        val seg = segFloat.toInt().coerceIn(0, colors.size - 1)
-        val t = (segFloat - seg).coerceIn(0f, 1f)
-        val next = (seg + 1) % colors.size
-        return lerpColor(colors[seg], colors[next], t)
-    }
-
     private fun lerpColor(a: Color4b, b: Color4b, t: Float): Color4b {
         val tt = t.coerceIn(0f, 1f)
         return Color4b(
@@ -277,16 +250,26 @@ object ModuleSolsticeNotification : ClientModule(
         )
     }
 
-    /** 按颜色模式取进度条主题色 (index = 通知堆叠位置, time = 秒) */
-    private fun themedColorFor(index: Float, time: Float, type: Type): Color4b {
+    /**
+     * 按颜色模式取通知主题色:
+     * - Custom: 开启 → customEnabledColor (深蓝), 关闭 → customDisabledColor (紫),
+     *           非开关通知 → customDefaultColor
+     * - Gradient: 进度条左色 (右色由渲染端 gradientRight 采样)
+     * - Random: 使用创建通知时预生成的 n.randomColor (固定, 不闪烁)
+     * - Warning/Error 类型在 Custom/Gradient 下保持黄色/红色 (便于区分告警)
+     */
+    private fun themedColorFor(n: Notification): Color4b {
+        // 告警类型优先: Warning黄/Error红 (所有模式下保持一致, 便于区分)
+        if (n.type == Type.WARNING) return Color4b(255, 204, 0, 255)
+        if (n.type == Type.ERROR) return Color4b(255, 0, 0, 255)
         return when (colorMode) {
-            NotifColorMode.CUSTOM2 -> custom2ThemedColor(index, time)
-            NotifColorMode.GRADIENT -> gradientLeft  // 渐变左色 (右色由渲染端采样)
-            NotifColorMode.TYPE -> when (type) {
-                Type.WARNING -> Color4b(255, 204, 0, 255)
-                Type.ERROR -> Color4b(255, 0, 0, 255)
-                Type.INFO -> custom2ThemedColor(index, time)
+            NotifColorMode.CUSTOM -> when (n.toggleState) {
+                true -> customEnabledColor   // 开启 → 深蓝
+                false -> customDisabledColor // 关闭 → 紫
+                null -> customDefaultColor   // 非开关 → 默认色
             }
+            NotifColorMode.GRADIENT -> gradientLeft
+            NotifColorMode.RANDOM -> n.randomColor
         }
     }
 
@@ -415,8 +398,6 @@ object ModuleSolsticeNotification : ClientModule(
         // 无通知时直接返回, 不做任何计算/绘制
         if (notifications.isEmpty()) return@handler
 
-        // 每帧刷新一次 Custom2 主题色缓存 (前 N 色, 对齐 ArrayList 的 buildList 写法)
-        refreshThemeColors()
         val scaleF = fontSize / 11f
         val boxHP = textH() + 30f * scaleF
 
@@ -473,9 +454,8 @@ object ModuleSolsticeNotification : ClientModule(
             val boxTop = y - boxH
             val boxBottom = y - 10f
 
-            // 进度条主题色 (按颜色模式; Warning/Error 在 TYPE 模式下区分, 其他模式用模式色)
-            val timeSec = System.currentTimeMillis() / 1000f
-            val theme = themedColorFor(boxTop * 0.15f, timeSec, n.type)
+            // 进度条主题色 (按颜色模式; Warning/Error 黄红优先)
+            val theme = themedColorFor(n)
             val aMul = n.slide
             val glowMul = if (n.isTimeUp) {
                 aMul.coerceIn(0f, 1f)
@@ -483,16 +463,11 @@ object ModuleSolsticeNotification : ClientModule(
                 max(aMul, 0.9f)
             }
             val cLeft = theme.alpha((220 * aMul).toInt().coerceIn(0, 255))
-            // 右端色: CUSTOM2 用相位偏移采样(流水效果), GRADIENT 用右色
-            val cRight = when (colorMode) {
-                NotifColorMode.CUSTOM2 -> custom2ThemedColor(boxTop * 0.15f + 40f, timeSec)
-                    .alpha((200 * aMul).toInt().coerceIn(0, 255))
-                NotifColorMode.GRADIENT -> gradientRight.alpha((200 * aMul).toInt().coerceIn(0, 255))
-                NotifColorMode.TYPE -> when (n.type) {
-                    Type.WARNING -> Color4b(255, 204, 0, 255)
-                    Type.ERROR -> Color4b(255, 0, 0, 255)
-                    Type.INFO -> custom2ThemedColor(boxTop * 0.15f + 40f, timeSec)
-                }.alpha((200 * aMul).toInt().coerceIn(0, 255))
+            // 右端色: GRADIENT 用 gradientRight, 其他模式与左色一致
+            val cRight = if (colorMode == NotifColorMode.GRADIENT) {
+                gradientRight.alpha((200 * aMul).toInt().coerceIn(0, 255))
+            } else {
+                cLeft
             }
 
             // 【Glow 对齐 ArrayList】发光颜色跟随进度条主题色 (不再单独设置 Glow Color)
@@ -505,14 +480,13 @@ object ModuleSolsticeNotification : ClientModule(
             val fillW = boxW * percentDone
             if (fillW > 0.5f) {
                 when (colorMode) {
-                    // Custom2: 进度条按横向位置采样流水色 (同帧多色流动)
-                    NotifColorMode.CUSTOM2 -> drawProgressFill(
-                        ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul, 3f,
-                    ) { u ->
-                        custom2ThemedColor(u * 120f, timeSec)
-                    }
+                    // Custom: 单色填充 (开启深蓝/关闭紫/默认色, 调色板可调)
+                    // Random: 单色填充 (通知创建时预生成的随机色)
+                    NotifColorMode.CUSTOM, NotifColorMode.RANDOM -> drawProgressFill(
+                        ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul, 1e5f,
+                    ) { cLeft }
 
-                    // Gradient: 左→右平滑渐变
+                    // Gradient: 左→右平滑渐变 (Gradient Left → Gradient Right)
                     NotifColorMode.GRADIENT -> drawProgressFill(
                         ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul, 3f,
                     ) { u ->
@@ -522,14 +496,6 @@ object ModuleSolsticeNotification : ClientModule(
                             lerp(cLeft.g.toFloat(), cRight.g.toFloat(), s).toInt().coerceIn(0, 255),
                             lerp(cLeft.b.toFloat(), cRight.b.toFloat(), s).toInt().coerceIn(0, 255),
                         )
-                    }
-
-                    // By Type: 单色填充 (Warning黄/Error红/Info用Custom2流水)
-                    NotifColorMode.TYPE -> drawProgressFill(
-                        ctx, x, boxTop, boxBottom, boxW, fillW, cornerRadius, aMul,
-                        if (n.type == Type.INFO) 3f else 1e5f,
-                    ) { u ->
-                        if (n.type == Type.INFO) custom2ThemedColor(u * 120f, timeSec) else cLeft
                     }
                 }
             }

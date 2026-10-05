@@ -143,7 +143,7 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
     private val custom2ColorCount by int("C2 Color Count", 2, 1..7)
     // 调色板 Color1~Color7 (与 Count 配合: Count=2 时只用 Color1/Color2)
     private val custom2Color1 by color("C2 Color 1", Color4b(0x99, 0x33, 0xFF)) // 紫
-    private val custom2Color2 by color("C2 Color 2", Color4b(0x33, 0x66, 0xFF)) // 蓝
+    private val custom2Color2 by color("C2 Color 2", Color4b(0xFF, 0x33, 0x99)) // 蓝
     private val custom2Color3 by color("C2 Color 3", Color4b(0x33, 0xFF, 0x66)) // 绿
     private val custom2Color4 by color("C2 Color 4", Color4b(0xFF, 0xFF, 0x33)) // 黄
     private val custom2Color5 by color("C2 Color 5", Color4b(0xFF, 0x99, 0x33)) // 橙
