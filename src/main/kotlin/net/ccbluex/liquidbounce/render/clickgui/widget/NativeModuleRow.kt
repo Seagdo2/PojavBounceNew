@@ -138,14 +138,16 @@ class NativeModuleRow(val module: ClientModule) {
         val maxNameWidth = width - 20 - (if (hasSettings) ARROW_ZONE else 12)
         val textX = x + 12
         val textY = y + (ROW_HEIGHT - font.lineHeight) / 2
-        val textW = font.width(module.name)
+        // 【翻译】显示名用翻译名 (module.name 仍是原英文, 用于配置/命令/布局存储)
+        val displayName = net.ccbluex.liquidbounce.features.module.modules.misc.ModuleTranslation.t(module.name)
+        val textW = font.width(displayName)
 
         if (textW <= maxNameWidth) {
             // 文字不超出 → 直接渲染
-            gfx.text(font, module.name, textX, textY, textColor, false)
+            gfx.text(font, displayName, textX, textY, textColor, false)
         } else {
             // 【跑马灯】超出范围 → 电子屏式循环滚动 (4秒停 + 4秒滚, 如此往复)
-            GuiRender2D.renderMarqueeText(gfx, font, module.name, textX, textY, maxNameWidth, y, ROW_HEIGHT, textColor)
+            GuiRender2D.renderMarqueeText(gfx, font, displayName, textX, textY, maxNameWidth, y, ROW_HEIGHT, textColor)
         }
 
         if (hasSettings) {

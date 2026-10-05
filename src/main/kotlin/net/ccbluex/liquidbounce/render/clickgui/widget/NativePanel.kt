@@ -171,7 +171,9 @@ class NativePanel(
             textX = x + 30
         }
         val font = Minecraft.getInstance().font
-        gfx.text(font, category.tag, textX, y + (HEADER_HEIGHT - font.lineHeight) / 2, ClickGuiPalette.TEXT, false)
+        // 【翻译】分类标题显示用翻译名 (icon查找仍用英文原tag)
+        val displayTag = net.ccbluex.liquidbounce.features.module.modules.misc.ModuleTranslation.t(category.tag)
+        gfx.text(font, displayTag, textX, y + (HEADER_HEIGHT - font.lineHeight) / 2, ClickGuiPalette.TEXT, false)
 
         val chevronCx = x + WIDTH - 18
         val chevronCy = y + HEADER_HEIGHT / 2
