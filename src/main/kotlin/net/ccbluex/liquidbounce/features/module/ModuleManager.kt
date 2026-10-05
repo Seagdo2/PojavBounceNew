@@ -91,6 +91,7 @@ import net.ccbluex.liquidbounce.features.module.modules.`fun`.ModuleVomit
 import net.ccbluex.liquidbounce.features.module.modules.`fun`.notebot.ModuleNotebot
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAntiCheatDetect
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAntiStaff
+import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleTranslation
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAutoAccount
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAutoChatGame
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAutoConfig
@@ -551,6 +552,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleTargetLock,
             ModuleAutoPearl,
             ModuleAntiStaff,
+            ModuleTranslation,
             ModuleFlagCheck,
             ModulePacketLogger,
             ModuleDebugRecorder,
