@@ -55,7 +55,7 @@ object ModuleSolsticeNotification : ClientModule(
     ModuleCategories.RENDER,
     aliases = listOf("Notifications", "SolsticeNotif"),
 ) {
-    init { enabled = false }
+    init { enabled = true }
 
     private enum class Style(override val tag: String) : Tagged { SOLARIS("Solaris") }
 
@@ -66,7 +66,7 @@ object ModuleSolsticeNotification : ClientModule(
     private val soundVolume by float("Sound Volume", 0.6f, 0f..1f)
     private val limitNotifications by boolean("Limit Notifications", false)
     private val maxNotifications by int("Max Notifications", 6, 1..25)
-    private val fontSize by float("Font Size", 11f, 8f..20f)
+    private val fontSize by float("Font Size", 8f, 8f..20f)
     private val rightMargin by float("Right Margin", 10f, 0f..40f)
     private val bottomMargin by float("Bottom Margin", 10f, 0f..40f)
     private val animSpeed by float("Anim Speed", 5f, 1f..15f)
@@ -95,9 +95,9 @@ object ModuleSolsticeNotification : ClientModule(
 
     // ==================== Glow (对齐 ArrayList 写法, 默认值一致) ====================
     private val glowEnabled by boolean("Glow", true)
-    private val glowRange by float("Glow Range", 18f, 0f..30f)
-    private val glowStrength by float("Glow Strength", 0.04f, 0.01f..1f)
-    private val glowDensity by int("Glow Density", 6, 1..12)
+    private val glowRange by float("Glow Range", 17f, 0f..30f)
+    private val glowStrength by float("Glow Strength", 0.18f, 0.01f..1f)
+    private val glowDensity by int("Glow Density", 12, 1..12)
     private val glowOffsetX by float("Glow Offset X", 0f, -16f..16f)
     private val glowOffsetY by float("Glow Offset Y", 0f, -16f..16f)
 
