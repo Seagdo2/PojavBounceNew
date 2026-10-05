@@ -9,7 +9,7 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 
 object ModuleTranslation : ClientModule(
-    "[Translation]",
+    "Translation",
     ModuleCategories.MISC,
     aliases = listOf("Translate"),
 ) {
