@@ -42,10 +42,17 @@ class NativeSearchBar(
     private var results: List<ClientModule> = emptyList()
 
     private fun refresh() {
-        results = if (query.isBlank()) emptyList() else
-            allModules().filter { it.name.contains(query, ignoreCase = true) }
+        results = if (query.isBlank()) {
+            emptyList()
+        } else {
+            allModules()
+                .filter { mod ->
+                    mod.name.contains(query, ignoreCase = true) ||
+                        mod.aliases.any { it.contains(query, ignoreCase = true) }
+                }
                 .sortedBy { it.name.length }
                 .take(MAX_RESULTS)
+        }
     }
 
     fun centerX(screenWidth: Int): Int = (screenWidth - WIDTH) / 2
@@ -125,22 +132,43 @@ class NativeSearchBar(
 
     fun charTyped(chr: Char): Boolean {
         if (!focused) return false
+        // Ignore control chars (backspace is handled in keyPressed)
+        if (chr.isISOControl()) return true
         query += chr
         refresh()
         return true
     }
 
-    fun keyPressed(keyCode: Int): Boolean {
+    /**
+     * Accept SDL scancode ([key]), platform keycode ([keycode]), and legacy GLFW
+     * codes so backspace/escape work on desktop 26.3, Pojav, and mixed builds.
+     */
+    fun keyPressed(key: Int, keycode: Int = -1): Boolean {
         if (!focused) return false
-        // 【FIX】MC 26.3 用 SDL 键码: KEY_BACKSPACE=42, KEY_ESCAPE=41 (InputConstants.java:134/136)
-        // 旧代码用 GLFW 键码(259/256), 在 MC 26.3 下永远不匹配导致退格/ESC失效
-        if (keyCode == 42 && query.isNotEmpty()) { // KEY_BACKSPACE (SDL)
+        val backspace =
+            key == InputConstants.KEY_BACKSPACE ||
+            keycode == InputConstants.KEYCODE_BACKSPACE ||
+            key == 259 // legacy GLFW
+        val delete =
+            key == InputConstants.KEY_DELETE ||
+            keycode == InputConstants.KEYCODE_DELETE ||
+            key == 261
+        val escape =
+            key == InputConstants.KEY_ESCAPE ||
+            key == 256 // legacy GLFW
+
+        if ((backspace || delete) && query.isNotEmpty()) {
             query = query.dropLast(1)
             refresh()
             return true
         }
-        if (keyCode == 41) { // KEY_ESCAPE (SDL) — 取消聚焦
-            focused = false
+        if (escape) {
+            if (query.isNotEmpty()) {
+                query = ""
+                refresh()
+            } else {
+                focused = false
+            }
             return true
         }
         return false
