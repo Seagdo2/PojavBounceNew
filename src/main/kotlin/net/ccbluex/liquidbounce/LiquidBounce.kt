@@ -509,6 +509,9 @@ object LiquidBounce : EventListener {
                 logger.info("Some features (JCEF, Discord IPC, Deep Learning) will be disabled.")
             }
 
+            // 注册自定义主界面按钮 (ThemeMod 移植)
+            net.ccbluex.liquidbounce.integration.title.TitleScreenHook.register()
+
             // Initialize event manager
             EventManager
 
