@@ -169,7 +169,7 @@ object ModuleArrayList : ClientModule("ArrayList", ModuleCategories.RENDER) {
     private val glowMode by enumChoice("Glow Mode", GlowMode.BOTH)
     private val glowRange by float("Glow Range", 18f, 0f..30f)
     private val glowStrength by float("Glow Strength", 0.04f, 0.01f..1f)
-    private val glowDensity by int("Glow Density", 8, 1..12)
+    private val glowDensity by int("Glow Density", 4, 1..12)
     private val glowOffsetX by float("Glow Offset X", 0f, -16f..16f)
     private val glowOffsetY by float("Glow Offset Y", 0f, -16f..16f)
 

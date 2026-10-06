@@ -95,9 +95,9 @@ object ModuleSolsticeNotification : ClientModule(
 
     // ==================== Glow (对齐 ArrayList 写法, 默认值一致) ====================
     private val glowEnabled by boolean("Glow", true)
-    private val glowRange by float("Glow Range", 17f, 0f..30f)
+    private val glowRange by float("Glow Range", 12f, 0f..30f)
     private val glowStrength by float("Glow Strength", 0.18f, 0.01f..1f)
-    private val glowDensity by int("Glow Density", 6, 1..12)
+    private val glowDensity by int("Glow Density", 12, 1..12)
     private val glowOffsetX by float("Glow Offset X", 0f, -16f..16f)
     private val glowOffsetY by float("Glow Offset Y", 0f, -16f..16f)
 
