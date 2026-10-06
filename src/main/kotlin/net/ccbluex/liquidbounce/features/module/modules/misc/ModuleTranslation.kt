@@ -9,7 +9,7 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 
 object ModuleTranslation : ClientModule(
-    "中文模式",
+    "A中文模式",
     ModuleCategories.MISC,
     aliases = listOf("Translate"),
 ) {
@@ -1203,7 +1203,7 @@ private val FULL_DICT: Map<String, String> = buildMap {
     put("Chromium", "Chromium浏览器内核"); put("Chunk update error", "Chunk"); put("Cinfo#info", "Cinfo")
     put("Clanguage#info", "Clanguage"); put("Class name missing", "Class"); put("Click on Smart App Control settings.", "ClickSmartAppControl")
     put("Click to copy", "点击复制"); put("Click to copy the URL to your clipboard.", "ClickURL"); put("Click to load", "点击加载")
-    put("Click to open the URL in your browser.", "ClickURL"); put("Click to open the integration URL in your browser.", "ClickURL"); put("Click to set theme \", "点击")
+    put("Click to open the URL in your browser.", "点击在浏览器中打开URL"); put("Click to open the integration URL in your browser.", "点击在浏览器中打开集成URL"); put("Click to set theme", "点击设置主题")
     put("ClickGuiLayout", "ClickGui布局"); put("ClickGuiScaleChangeEvent", "ClickGui缩放变化Event"); put("Clicker", "点击器")
     put("Client Commit", "客户端Commit"); put("Client Integration", "客户端Integration"); put("Client Version", "客户端版本")
     put("Client identifier mismatch", "Client"); put("Client start", "客户端启动"); put("ClientAuthor", "客户端作者")
