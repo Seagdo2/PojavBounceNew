@@ -93,6 +93,12 @@ class NativeSearchBar(
         val x = centerX(screenWidth)
         if (mouseX in x..(x + WIDTH) && mouseY in TOP..(TOP + HEIGHT)) {
             focused = true
+            // 【FIX】MC 26.3 TextInputManager: 必须 SDL_StartTextInput 才能让 Android IME 发送文字
+            // 对齐 EditBox.java:521 的做法: onTextInputFocusChange(owner, true) → startTextInput
+            try {
+                net.minecraft.client.Minecraft.getInstance().onTextInputFocusChange(this, true)
+            } catch (_: Throwable) {
+            }
             return true
         }
         if (results.isNotEmpty()) {
@@ -117,6 +123,13 @@ class NativeSearchBar(
                     return true
                 }
                 rowY += ROW_HEIGHT
+            }
+        }
+        // 点击搜索栏以外 → 取消聚焦 + 停止 IME
+        if (focused) {
+            try {
+                net.minecraft.client.Minecraft.getInstance().onTextInputFocusChange(this, false)
+            } catch (_: Throwable) {
             }
         }
         focused = false

@@ -85,6 +85,10 @@ class NativePanel(
     private var dragging = false
     private var dragOffsetX = 0
     private var dragOffsetY = 0
+    // ======== 【FIX】滚动条拖动状态 ========
+    private var draggingScrollbar = false
+    private var scrollbarDragStartY = 0f
+    private var scrollbarDragStartScroll = 0f
 
     private fun contentHeight(): Int = rows.sumOf { it.totalHeight(WIDTH - 8) }
 
@@ -223,7 +227,8 @@ class NativePanel(
                 gfx.enableScissor(clipX0, clipY0, clipX1, clipY1)
                 scissorPushed = true
             }
-            if (bh > 0) {
+            // 【FIX 穿模】只在 scissor 成功建立后才渲染行; 否则行会溢出到标题栏蓝线上方
+            if (bh > 0 && scissorPushed) {
                 var rowY = bodyY - scroll
                 for (row in rows) {
                     val rh = row.layoutHeight(WIDTH - 8)
@@ -258,11 +263,22 @@ class NativePanel(
             GuiRender2D.strokeRoundedRect(gfx, x, y, WIDTH, h, RADIUS, 1, ClickGuiPalette.GLASS_EDGE_HIGHLIGHT)
         }
 
-        // The bottom-right corner is intentionally empty now: the first
-        // revision drew three short diagonal "drag to resize" strokes here
-        // for a per-panel body-height grip, but that has been replaced by a
-        // single ModuleClickGui "PanelHeight" setting, so the footer is
-        // clean (matching the web source, which has no such control).
+        // ======== 【FIX】右侧滚动条 (细条, 可点击拖动) ========
+        val contentH = contentHeight()
+        val maxScrollF = (contentH - fullBodyHeight()).coerceAtLeast(0).toFloat()
+        if (maxScrollF > 0.5f && bh > 4) {
+            val trackX = x + WIDTH - 3   // 距右边缘3px, 宽2px (细)
+            val trackY = bodyY + 2
+            val trackH = bh - 4
+            // 轨道 (半透明白)
+            gfx.fill(trackX, trackY, trackX + 2, trackY + trackH, 0x28FFFFFF)
+            // 滑块 (ACCENT 色, 位置按滚动比例)
+            val thumbH = (trackH * fullBodyHeight() / contentH).coerceAtLeast(12f)
+            val maxThumbY = trackY + trackH - thumbH
+            val thumbY = if (maxScrollF > 0f) trackY + (scrollAnimated / maxScrollF) * (trackH - thumbH) else trackY
+            val thumbColor = if (draggingScrollbar) ClickGuiPalette.ACCENT else 0x586688FF.toInt()
+            gfx.fill(trackX, thumbY.toInt(), trackX + 2, (thumbY + thumbH).toInt(), thumbColor)
+        }
     }
 
     /**
@@ -318,6 +334,21 @@ class NativePanel(
     fun mouseClicked(mouseX: Int, mouseY: Int, button: Int): Boolean {
         if (mouseX !in x..(x + WIDTH)) return false
 
+        // ======== 【FIX】滚动条点击检测 (右侧3px区域, MC 26.3 SDL: 左键=1) ========
+        if (!collapsed && button == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
+            val sbX = x + WIDTH - 3
+            if (mouseX >= sbX && mouseY in (y + HEADER_HEIGHT)..(y + HEADER_HEIGHT + liveBodyHeight())) {
+                val contentH = contentHeight()
+                val maxScrollF = (contentH - fullBodyHeight()).coerceAtLeast(0).toFloat()
+                if (maxScrollF > 0.5f) {
+                    draggingScrollbar = true
+                    scrollbarDragStartY = mouseY.toFloat()
+                    scrollbarDragStartScroll = scrollTarget
+                    return true
+                }
+            }
+        }
+
         if (mouseY in y..(y + HEADER_HEIGHT)) {
             if (button == InputConstants.MOUSE_BUTTON_RIGHT) {
                 collapsed = !collapsed
@@ -352,6 +383,19 @@ class NativePanel(
     }
 
     fun mouseDragged(mouseX: Int, mouseY: Int, button: Int, dragX: Double, dragY: Double): Boolean {
+        // ======== 【FIX】滚动条拖动: 按比例映射到滚动目标 ========
+        if (draggingScrollbar) {
+            val contentH = contentHeight()
+            val bh = fullBodyHeight()
+            val trackH = (bh - 4).coerceAtLeast(1f)
+            val maxScrollF = (contentH - bh).coerceAtLeast(0).toFloat()
+            if (maxScrollF > 0.5f && trackH > 0) {
+                val dy = mouseY - scrollbarDragStartY
+                val ratio = dy / trackH
+                scrollTarget = (scrollbarDragStartScroll + ratio * maxScrollF).coerceIn(0f, maxScrollF)
+            }
+            return true
+        }
         if (dragging) {
             x = mouseX - dragOffsetX
             y = mouseY - dragOffsetY
@@ -370,13 +414,14 @@ class NativePanel(
     }
 
     fun mouseReleased(mouseX: Int, mouseY: Int, button: Int): Boolean {
-        val was = dragging
+        val was = dragging || draggingScrollbar
         if (dragging && ModuleClickGui.Snapping.enabled) {
             val grid = ModuleClickGui.Snapping.gridSize
             x = ((x + grid / 2) / grid) * grid
             y = ((y + grid / 2) / grid) * grid
         }
         dragging = false
+        draggingScrollbar = false
         rows.forEach { it.mouseReleased(mouseX, mouseY, button) }
         return was
     }
