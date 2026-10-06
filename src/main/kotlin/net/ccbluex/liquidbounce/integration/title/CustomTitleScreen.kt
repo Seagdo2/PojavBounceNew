@@ -69,9 +69,15 @@ private data class SmBtn(
 
 /** 3 个大按钮 (左侧主列, 用PNG图标) */
 private val BIG_BTNS = listOf(
-    BigBtn("Singleplayer", ICON_COMBAT, "SP") { mc -> mc.gui.setScreen(SelectWorldScreen(mc)) },
-    BigBtn("Multiplayer",  ICON_PLAYER, "MP") { mc -> mc.gui.setScreen(JoinMultiplayerScreen(mc)) },
-    BigBtn("Options",      null,       "OP") { mc -> mc.gui.setScreen(OptionsScreen(mc, Minecraft.getInstance().options)) },
+    BigBtn("Singleplayer", ICON_COMBAT, "SP") { screen ->
+        Minecraft.getInstance().gui.setScreen(SelectWorldScreen(screen))
+    },
+    BigBtn("Multiplayer",  ICON_PLAYER, "MP") { screen ->
+        Minecraft.getInstance().gui.setScreen(JoinMultiplayerScreen(screen))
+    },
+    BigBtn("Options",      null,       "OP") { screen ->
+        Minecraft.getInstance().gui.setScreen(OptionsScreen(screen, Minecraft.getInstance().options))
+    },
 )
 
 /** 小按钮行 (用PNG图标) */
