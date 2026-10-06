@@ -36,7 +36,7 @@ object ModuleClickGui :
 
     override val running get() = true
 
-    val scale by float("Scale", 0.9f, 0.1f..1.3f).onChanged {
+    val scale by float("Scale", 1f, 0.1f..1.3f).onChanged {
         EventManager.callEvent(ClickGuiScaleChangeEvent(it))
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
@@ -45,14 +45,14 @@ object ModuleClickGui :
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
-    val glassMode by boolean("GlassMode", true).onChanged {
+    val glassMode by boolean("GlassMode", false).onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
     /**
      * Max visible body height before the panel scrolls.
      */
-    val panelHeight by int("PanelHeight", 340, 60..900, "px").onChanged {
+    val panelHeight by int("PanelHeight", 342, 60..900, "px").onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
@@ -60,14 +60,14 @@ object ModuleClickGui :
      * Hard ceiling used by add-ons / layout helpers (ABI).
      * Kept as its own setting so getPanelMaxHeight() stays stable in the binary API.
      */
-    val panelMaxHeight by int("PanelMaxHeight", 790, 100..2000, "px").onChanged {
+    val panelMaxHeight by int("PanelMaxHeight", 900, 100..2000, "px").onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
     /**
      * Per-panel width (NativePanel / initial grid read this live).
      */
-    val panelWidth by int("PanelWidth", 140, 120..500, "px").onChanged {
+    val panelWidth by int("PanelWidth", 130, 120..500, "px").onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
 
