@@ -82,8 +82,10 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
         if (panels.isEmpty()) {
             buildPanels()
             restoreLayout()
-            searchBar.focused = ModuleClickGui.searchBarAutoFocus
         }
+        // Always re-apply focus on open (panels persist across reopen; old code
+        // only focused on first build, so search looked "dead" on later opens).
+        searchBar.focused = ModuleClickGui.searchBarAutoFocus
     }
 
     private fun buildPanels() {
@@ -204,12 +206,20 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
     }
 
     override fun charTyped(event: CharacterEvent): Boolean {
-        // 【FIX】直接用 codepoint 转字符, 兼容中文/Unicode
-        val cp = event.codepoint
-        val chr = if (cp in 0..0xFFFF) cp.toChar() else '?'
-        if (searchBar.charTyped(chr)) return true
-        if (panels.any { it.charTyped(chr) }) return true
-        return super.charTyped(event)
+        // Prefer codepointAsString for full Unicode; fall back to single char.
+        val text = try {
+            event.codepointAsString()
+        } catch (_: Throwable) {
+            val cp = event.codepoint
+            if (cp in 0..0xFFFF) cp.toChar().toString() else ""
+        }
+        if (text.isEmpty()) return super.charTyped(event)
+        var handled = false
+        for (ch in text) {
+            if (searchBar.charTyped(ch)) handled = true
+            else if (panels.any { it.charTyped(ch) }) handled = true
+        }
+        return handled || super.charTyped(event)
     }
 
     /**
@@ -228,10 +238,11 @@ class NativeClickGuiScreen : Screen(Component.literal("LiquidBounce")) {
     }
 
     override fun keyPressed(event: KeyEvent): Boolean {
-        // 【FIX】MC 26.3 KeyEvent.key = SDL scancode (不是 GLFW keycode)
-        val keyCode = event.key
-        if (searchBar.keyPressed(keyCode)) return true
-        if (panels.any { it.keyPressed(keyCode) }) return true
+        // KeyEvent: key = InputConstants scancode (SDL on 26.3), keycode = platform code
+        val key = event.key
+        val keycode = event.keycode
+        if (searchBar.keyPressed(key, keycode)) return true
+        if (panels.any { it.keyPressed(key) }) return true
         return super.keyPressed(event)
     }
 
