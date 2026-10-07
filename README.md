@@ -69,11 +69,11 @@
 
 1. 将下载的 `.jar` 文件放入手机的 Minecraft mods 目录：
    ```
-   内部存储/FCL/.minecraft/mods/
+   内部存储/FCL/.minecraft/versions/26.3-Fabric-0.19.5/mods
    ```
    或（ZalithLauncher）：
    ```
-   内部存储/ZalithLauncher/.minecraft/mods/
+   内部存储/Android/data/com.movtery.zalithlauncher.v2/files/.minecraft/versions/26.3Fabric0.19.5/mods
    ```
 
 2. 如果 `mods` 文件夹不存在，手动创建即可
